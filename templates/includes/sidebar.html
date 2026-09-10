@@ -68,6 +68,66 @@
             <span class="nav-label ml-3 whitespace-nowrap">Finance</span>
           </a>
         </li>
+        <li>
+          <a
+            href="{% url 'dashboard:fee_ledger' %}"
+            title="Fee ledger"
+            class="nav-link flex w-full items-center overflow-hidden px-4 py-2.5 text-sm {% if request.resolver_match.url_name == 'fee_ledger' or request.resolver_match.url_name == 'fee_ledger_search' %}is-active bg-yellow-400 text-black{% else %}text-zinc-300 hover:bg-black hover:text-yellow-400{% endif %}"
+          >
+            <span class="nav-icon-slot inline-flex h-5 w-5 shrink-0 items-center justify-center">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M5 5h14v14H5z" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M8 9h8M8 12h8M8 15h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <span class="nav-label ml-3 whitespace-nowrap">Fee ledger</span>
+          </a>
+        </li>
+        <li>
+          <a
+            href="{% url 'dashboard:report_list' %}"
+            title="Reports"
+            class="nav-link flex w-full items-center overflow-hidden px-4 py-2.5 text-sm {% if request.resolver_match.url_name == 'report_list' or request.resolver_match.url_name == 'report_detail' %}is-active bg-yellow-400 text-black{% else %}text-zinc-300 hover:bg-black hover:text-yellow-400{% endif %}"
+          >
+            <span class="nav-icon-slot inline-flex h-5 w-5 shrink-0 items-center justify-center">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M6 4h9l3 3v13H6V4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                <path d="M9 11h6M9 14h6M9 17h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <span class="nav-label ml-3 whitespace-nowrap">Reports</span>
+          </a>
+        </li>
+        <li>
+          <a
+            href="{% url 'dashboard:broadcast_list' %}"
+            title="Broadcasts"
+            class="nav-link flex w-full items-center overflow-hidden px-4 py-2.5 text-sm {% if request.resolver_match.url_name == 'broadcast_list' or request.resolver_match.url_name == 'broadcast_create' or request.resolver_match.url_name == 'broadcast_preview' %}is-active bg-yellow-400 text-black{% else %}text-zinc-300 hover:bg-black hover:text-yellow-400{% endif %}"
+          >
+            <span class="nav-icon-slot inline-flex h-5 w-5 shrink-0 items-center justify-center">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 4v12M8 8l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M5 16.5c1.8 1.6 3.8 2.5 7 2.5s5.2-.9 7-2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <span class="nav-label ml-3 whitespace-nowrap">Broadcasts</span>
+          </a>
+        </li>
+        <li>
+          <a
+            href="{% url 'dashboard:chat_console' %}?tab=escalated"
+            title="WhatsApp"
+            class="nav-link flex w-full items-center overflow-hidden px-4 py-2.5 text-sm {% if request.resolver_match.url_name == 'chat_console' or request.resolver_match.url_name == 'chat_console_session' or request.resolver_match.url_name == 'conversation_console' %}is-active bg-yellow-400 text-black{% else %}text-zinc-300 hover:bg-black hover:text-yellow-400{% endif %}"
+          >
+            <span class="nav-icon-slot inline-flex h-5 w-5 shrink-0 items-center justify-center">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4 3v-3H7.5A2.5 2.5 0 0 1 5 13.5v-7z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                <path d="M8.5 9h7M8.5 12h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <span class="nav-label ml-3 whitespace-nowrap">WhatsApp</span>
+          </a>
+        </li>
         {% endif %}
 
         {% if is_class_teacher %}
@@ -99,12 +159,12 @@
         <div class="profile-avatar-menu relative flex h-12 items-center px-4">
           <button
             type="button"
-            class="profile-avatar-trigger nav-icon-slot inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full hover:ring-2 hover:ring-yellow-400"
+            class="profile-avatar-trigger nav-icon-slot inline-flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full hover:ring-2 hover:ring-yellow-400"
             aria-haspopup="menu"
             aria-expanded="false"
             aria-label="Account menu"
           >
-            {% user_avatar user size=32 %}
+            {% user_avatar user size=20 %}
           </button>
           <div class="nav-label ml-3 flex min-w-0 items-center gap-2 whitespace-nowrap">
             <span class="truncate text-sm font-medium text-zinc-100">

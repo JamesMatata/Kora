@@ -5,3 +5,7 @@ Pillow==12.3.0
 openpyxl==3.1.5
 dicebear-core==10.7.0
 dicebear-styles==10.6.0
+requests==2.32.5
+cryptography==45.0.7
+twilio==9.8.0
+google-genai==1.56.0

@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}Broadcasts · Kora{% endblock %}
+
+{% block page_title %}Broadcasts{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">Broadcasts</span>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">Broadcasts</h2>
+        <p class="mt-2 max-w-2xl text-sm text-zinc-400">
+          Send WhatsApp announcements to all parents, a grade, or a single class stream.
+        </p>
+      </div>
+      <a
+        href="{% url 'dashboard:chat_console' %}?tab=escalated"
+        class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+      >
+        WhatsApp console
+      </a>
+    </div>
+
+    <form
+      id="broadcast-form"
+      method="post"
+      action="{% url 'dashboard:broadcast_list' %}"
+      class="space-y-4 rounded-md border border-zinc-800 bg-black p-4"
+      hx-get="{% url 'dashboard:broadcast_preview' %}"
+    >
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="rounded-md border border-red-400/40 bg-red-400/10 px-3 py-2 text-sm text-red-300">
+          {{ form.non_field_errors|striptags }}
+        </div>
+      {% endif %}
+
+      <div class="grid gap-4 lg:grid-cols-2">
+        <div class="space-y-4">
+          <div>
+            <label for="id_title" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Title</label>
+            {{ form.title }}
+            {% if form.title.errors %}
+              <p class="mt-1 text-xs text-red-400">{{ form.title.errors|striptags }}</p>
+            {% endif %}
+          </div>
+          <div>
+            <label for="id_message" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Message</label>
+            {{ form.message }}
+            {% if form.message.errors %}
+              <p class="mt-1 text-xs text-red-400">{{ form.message.errors|striptags }}</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label for="broadcast-audience" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Audience</label>
+            {{ form.target_audience }}
+          </div>
+
+          <div id="target-grade-wrap" class="hidden">
+            <label for="broadcast-grade" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Grade</label>
+            <select
+              id="broadcast-grade"
+              class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+            >
+              <option value="">Select grade…</option>
+              {% for grade in grades %}
+                <option value="{{ grade.pk }}" {% if form.target_id.value|stringformat:"s" == grade.pk|stringformat:"s" and form.target_audience.value == audience_grade %}selected{% endif %}>{{ grade.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div id="target-stream-wrap" class="hidden">
+            <label for="broadcast-stream" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Class stream</label>
+            <select
+              id="broadcast-stream"
+              class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+            >
+              <option value="">Select stream…</option>
+              {% for stream in streams %}
+                <option value="{{ stream.pk }}" {% if form.target_id.value|stringformat:"s" == stream.pk|stringformat:"s" and form.target_audience.value == audience_stream %}selected{% endif %}>{{ stream }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          {{ form.target_id }}
+          {% if form.target_id.errors %}
+            <p class="text-xs text-red-400">{{ form.target_id.errors|striptags }}</p>
+          {% endif %}
+
+          <div class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Recipient preview</p>
+            <p id="preview-recipients" class="mt-2 text-sm">
+              <span id="preview-count" class="font-mono text-yellow-400">—</span>
+              <span class="text-zinc-400"> unique parents</span>
+            </p>
+            <p class="mt-2 text-xs text-zinc-500">
+              Messages send in the background with a short delay between each WhatsApp delivery.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-end gap-3 border-t border-zinc-800 pt-4">
+        <button
+          type="submit"
+          class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+        >
+          Send broadcast
+        </button>
+      </div>
+    </form>
+
+    <div class="space-y-3">
+      <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Broadcast history</p>
+      <div class="overflow-x-auto rounded-md border border-zinc-800">
+        <table class="min-w-full border-collapse text-left text-sm">
+          <thead class="bg-black">
+            <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+              <th class="px-4 py-3 font-medium">Title</th>
+              <th class="px-4 py-3 font-medium">Audience</th>
+              <th class="px-4 py-3 font-medium">Delivery</th>
+              <th class="px-4 py-3 font-medium">Status</th>
+              <th class="px-4 py-3 font-medium">Sender</th>
+              <th class="px-4 py-3 font-medium">Created</th>
+            </tr>
+          </thead>
+          <tbody class="bg-zinc-950">
+            {% for notice in broadcasts %}
+              <tr class="border-b border-zinc-800 align-top">
+                <td class="px-4 py-3">
+                  <p class="font-medium text-zinc-100">{{ notice.title }}</p>
+                  <p class="mt-1 line-clamp-2 text-xs text-zinc-500">{{ notice.message }}</p>
+                </td>
+                <td class="px-4 py-3 text-zinc-300">{{ notice.target_label }}</td>
+                <td class="px-4 py-3 font-mono text-xs text-yellow-400">
+                  {{ notice.sent_count }}/{{ notice.total_recipients }}
+                </td>
+                <td class="px-4 py-3">
+                  <span class="font-mono text-[10px] uppercase tracking-wider {% if notice.status == 'COMPLETED' %}text-yellow-400{% elif notice.status == 'SENDING' %}text-zinc-300{% elif notice.status == 'FAILED' %}text-red-400{% else %}text-zinc-500{% endif %}">
+                    {{ notice.get_status_display }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-zinc-400">
+                  {% if notice.created_by %}
+                    {{ notice.created_by.get_full_name|default:notice.created_by.email }}
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+                <td class="px-4 py-3 font-mono text-xs text-zinc-500">{{ notice.created_at|date:"M j, Y H:i" }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" class="px-4 py-8 text-center text-sm text-zinc-500">No broadcasts yet.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const audience = document.getElementById('broadcast-audience');
+  const gradeWrap = document.getElementById('target-grade-wrap');
+  const streamWrap = document.getElementById('target-stream-wrap');
+  const gradeSelect = document.getElementById('broadcast-grade');
+  const streamSelect = document.getElementById('broadcast-stream');
+  const targetId = document.getElementById('id_target_id');
+  const form = document.getElementById('broadcast-form');
+  if (!audience || !targetId || !form) return;
+
+  const ALL = '{{ audience_all }}';
+  const GRADE = '{{ audience_grade }}';
+  const STREAM = '{{ audience_stream }}';
+
+  function syncTarget() {
+    const mode = audience.value;
+    gradeWrap.classList.toggle('hidden', mode !== GRADE);
+    streamWrap.classList.toggle('hidden', mode !== STREAM);
+    if (mode === GRADE) {
+      targetId.value = gradeSelect.value || '';
+    } else if (mode === STREAM) {
+      targetId.value = streamSelect.value || '';
+    } else {
+      targetId.value = '';
+    }
+  }
+
+  function refreshPreview() {
+    syncTarget();
+    if (window.htmx) {
+      htmx.ajax('GET', form.getAttribute('hx-get'), {
+        source: form,
+        target: '#preview-recipients',
+        swap: 'innerHTML',
+        values: {
+          target_audience: audience.value,
+          target_id: targetId.value || '',
+        },
+      });
+    }
+  }
+
+  audience.addEventListener('change', refreshPreview);
+  gradeSelect.addEventListener('change', refreshPreview);
+  streamSelect.addEventListener('change', refreshPreview);
+  syncTarget();
+  refreshPreview();
+})();
+</script>
+{% endblock %}

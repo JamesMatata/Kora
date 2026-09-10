@@ -15,6 +15,35 @@ class SchoolAdmin(admin.ModelAdmin):
     list_display = ('name', 'code', 'paybill_number', 'is_active', 'created_at')
     list_filter = ('is_active',)
     search_fields = ('name', 'code', 'contact_email', 'paybill_number')
+    readonly_fields = ('created_at', 'updated_at')
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'code', 'is_active'),
+        }),
+        ('Contact', {
+            'fields': (
+                'contact_phone',
+                'contact_email',
+                'paybill_number',
+                'twilio_phone_number',
+            ),
+        }),
+        ('Daraja (encrypted at rest)', {
+            'classes': ('collapse',),
+            'fields': (
+                'mpesa_consumer_key',
+                'mpesa_consumer_secret',
+                'mpesa_passkey',
+            ),
+            'description': (
+                'Store Fernet-encrypted values via School.set_mpesa_credentials(). '
+                'Leaving these blank falls back to project DARAJA_* env keys.'
+            ),
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+        }),
+    )
     prepopulated_fields = {'code': ('name',)}
     ordering = ('name',)
 

@@ -1,18 +1,24 @@
 import csv
+import json
+from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, Prefetch, Q, Sum
+from django.db.models.functions import Coalesce
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.generic import TemplateView
 
-from academics.models import ClassStream, GradeLevel, Student
+from academics.models import AcademicYear, ClassStream, GradeLevel, Student
+from communications.models import ConversationSession, MessageLog
+from communications.services.twilio_service import send_whatsapp_message
 from dashboard.forms import (
     ClassTeacherAssignForm,
     GradeLevelForm,
@@ -24,13 +30,14 @@ from dashboard.forms import (
     StudentForm,
     StudentImportUploadForm,
 )
+from dashboard.models import ExecutiveWeeklyReport
 from dashboard.services.student_import import (
     TEMPLATE_HEADERS,
     import_students_for_stream,
     parse_student_spreadsheet,
 )
 from finance.forms import FeeChargeForm
-from finance.models import Payment, StudentFee
+from finance.models import FeeInvoice, Payment, PaymentPromise, PaymentTransaction, StudentFee
 from finance.services import create_and_assign_charge, stream_finance_rows
 from tenants.decorators import school_admin_required
 from tenants.models import SchoolMembership, StaffInvitation
@@ -106,13 +113,15 @@ def _get_accessible_stream(request, school, stream_slug):
     return stream
 
 
-class OverviewView(LoginRequiredMixin, TemplateView):
-    template_name = 'dashboard/overview.html'
+class DashboardOverviewView(LoginRequiredMixin, TemplateView):
+    """School command center — KPIs, recent M-Pesa activity, and escalations."""
+
+    template_name = 'dashboard/index.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         request = self.request
-        school = request.school
+        school = getattr(request, 'school', None)
         acting_as_teacher = bool(getattr(request, 'acting_as_teacher', False))
         context['overview_mode'] = 'teacher' if acting_as_teacher else 'admin'
         context['page_title'] = 'My Classes' if acting_as_teacher else 'Command Center'
@@ -158,15 +167,664 @@ class OverviewView(LoginRequiredMixin, TemplateView):
         staff = SchoolMembership.objects.filter(school=school)
         students = Student.objects.filter(school=school, is_active=True)
         streams = ClassStream.objects.filter(school=school)
+
+        invoice_qs = FeeInvoice.objects.filter(school=school)
+        year = AcademicYear.objects.filter(school=school, is_current=True).first()
+        if year is not None:
+            term_invoices = invoice_qs.filter(term__icontains=year.name)
+            if term_invoices.exists():
+                invoice_qs = term_invoices
+
+        total_billed = invoice_qs.aggregate(
+            total=Coalesce(Sum('total_amount'), Decimal('0.00'))
+        )['total'] or Decimal('0.00')
+
+        total_collected = (
+            PaymentTransaction.objects.filter(
+                school=school,
+                status=PaymentTransaction.Status.SUCCESS,
+            ).aggregate(total=Coalesce(Sum('amount'), Decimal('0.00')))['total']
+            or Decimal('0.00')
+        )
+
+        outstanding_balance = total_billed - total_collected
+        if outstanding_balance < 0:
+            outstanding_balance = Decimal('0.00')
+
+        if total_billed > 0:
+            collection_rate = round(
+                (total_collected / total_billed) * Decimal('100'),
+                1,
+            )
+        else:
+            collection_rate = Decimal('0.0')
+
+        active_escalations_count = ConversationSession.objects.filter(
+            school=school,
+            status=ConversationSession.Status.ESCALATED_PENDING,
+        ).count()
+        active_promises_count = PaymentPromise.objects.filter(
+            school=school,
+            status=PaymentPromise.Status.PENDING,
+        ).count()
+
+        recent_transactions = list(
+            PaymentTransaction.objects.filter(school=school)
+            .select_related('invoice__student')
+            .order_by('-created_at')[:10]
+        )
+
+        escalation_sessions = list(
+            ConversationSession.objects.filter(
+                school=school,
+                status=ConversationSession.Status.ESCALATED_PENDING,
+            )
+            .select_related('parent_contact', 'active_student', 'assigned_staff')
+            .order_by('-last_message_at')[:15]
+        )
+        urgent_attention = []
+        for esc in escalation_sessions:
+            reason_log = (
+                MessageLog.objects.filter(
+                    school=school,
+                    session=esc,
+                    body__startswith='[ESCALATION]',
+                )
+                .order_by('-created_at')
+                .first()
+            )
+            reason = ''
+            flagged_at = esc.last_message_at
+            if reason_log is not None:
+                reason = reason_log.body.replace('[ESCALATION]', '', 1).strip()
+                flagged_at = reason_log.created_at
+            urgent_attention.append(
+                {
+                    'session': esc,
+                    'parent_phone': esc.parent_contact.phone_number,
+                    'parent_name': esc.parent_contact.parent_name,
+                    'student': esc.active_student,
+                    'reason': reason or 'Flagged for human review',
+                    'flagged_at': flagged_at,
+                }
+            )
+
         context.update(
             {
                 'staff_count': staff.count(),
                 'student_count': students.count(),
                 'stream_count': streams.count(),
                 'admin_count': _active_admin_count(school),
+                'total_billed': total_billed,
+                'total_collected': total_collected,
+                'outstanding_balance': outstanding_balance,
+                'collection_rate': collection_rate,
+                'active_escalations_count': active_escalations_count,
+                'active_promises_count': active_promises_count,
+                'recent_transactions': recent_transactions,
+                'urgent_attention': urgent_attention,
+                'current_academic_year': year,
             }
         )
         return context
+
+
+# Backwards-compatible alias used across redirects / docs.
+OverviewView = DashboardOverviewView
+
+
+def _fee_ledger_filters(request):
+    return {
+        'q': (request.GET.get('q') or '').strip(),
+        'grade': (request.GET.get('grade') or '').strip(),
+        'stream': (request.GET.get('stream') or '').strip(),
+        'status': (request.GET.get('status') or 'ALL').strip().upper() or 'ALL',
+    }
+
+
+def _fee_ledger_queryset(school, *, q='', grade='', stream='', status='ALL'):
+    qs = (
+        FeeInvoice.objects.filter(school=school)
+        .select_related(
+            'student',
+            'student__grade_level',
+            'student__current_stream',
+        )
+        .order_by('student__admission_number', '-due_date', '-created_at')
+    )
+    if grade:
+        qs = qs.filter(student__grade_level_id=grade)
+    if stream:
+        qs = qs.filter(student__current_stream_id=stream)
+    if status and status != 'ALL':
+        qs = qs.filter(status=status)
+    if q:
+        qs = qs.filter(
+            Q(student__first_name__icontains=q)
+            | Q(student__last_name__icontains=q)
+            | Q(student__admission_number__icontains=q)
+        )
+    return qs
+
+
+def _conversation_for_student(school, student):
+    return (
+        ConversationSession.objects.filter(
+            school=school,
+            active_student=student,
+        )
+        .exclude(status=ConversationSession.Status.CLOSED)
+        .order_by('-last_message_at')
+        .first()
+        or ConversationSession.objects.filter(
+            school=school,
+            parent_contact__students=student,
+        )
+        .exclude(status=ConversationSession.Status.CLOSED)
+        .order_by('-last_message_at')
+        .first()
+    )
+
+
+def _ledger_row_context(school, invoices):
+    rows = []
+    for invoice in invoices:
+        student = invoice.student
+        conversation = _conversation_for_student(school, student)
+        profile_url = ''
+        if student.current_stream_id:
+            profile_url = reverse(
+                'dashboard:student_edit',
+                kwargs={
+                    'stream_slug': student.current_stream.slug,
+                    'admission_number': student.admission_number,
+                },
+            )
+        rows.append(
+            {
+                'invoice': invoice,
+                'student': student,
+                'balance': invoice.balance,
+                'conversation': conversation,
+                'profile_url': profile_url,
+            }
+        )
+    return rows
+
+
+@method_decorator(school_admin_required, name='dispatch')
+class FeeLedgerView(LoginRequiredMixin, View):
+    """Interactive school-wide student fee ledger with HTMX search."""
+
+    template_name = 'dashboard/fee_ledger.html'
+
+    def get(self, request):
+        school = _ensure_school(request)
+        if school is None:
+            return redirect('tenants:select')
+
+        filters = _fee_ledger_filters(request)
+        invoices = list(
+            _fee_ledger_queryset(school, **filters)[:200]
+        )
+        grades = GradeLevel.objects.filter(school=school).order_by('order', 'name')
+        streams = (
+            ClassStream.objects.filter(school=school)
+            .select_related('grade_level')
+            .order_by('grade_level__order', 'name')
+        )
+        streams_by_grade = {}
+        for stream in streams:
+            streams_by_grade.setdefault(str(stream.grade_level_id), []).append(
+                {'id': str(stream.pk), 'name': str(stream)}
+            )
+
+        return render(
+            request,
+            self.template_name,
+            {
+                'page_title': 'Fee ledger',
+                'filters': filters,
+                'status_choices': [
+                    ('ALL', 'All statuses'),
+                    *FeeInvoice.Status.choices,
+                ],
+                'grades': grades,
+                'streams': streams,
+                'streams_by_grade_json': json.dumps(streams_by_grade),
+                'ledger_rows': _ledger_row_context(school, invoices),
+                'query': filters['q'],
+            },
+        )
+
+
+@method_decorator(school_admin_required, name='dispatch')
+class FeeLedgerSearchView(LoginRequiredMixin, View):
+    """HTMX partial: fee ledger table body rows."""
+
+    template_name = 'dashboard/partials/fee_ledger_rows.html'
+
+    def get(self, request):
+        school = _ensure_school(request)
+        if school is None:
+            return HttpResponseForbidden('No school context.')
+
+        filters = _fee_ledger_filters(request)
+        invoices = list(_fee_ledger_queryset(school, **filters)[:200])
+        return render(
+            request,
+            self.template_name,
+            {
+                'ledger_rows': _ledger_row_context(school, invoices),
+                'query': filters['q'],
+            },
+        )
+
+
+@method_decorator(school_admin_required, name='dispatch')
+class FeeLedgerStkPushView(LoginRequiredMixin, View):
+    """Quick STK push from the fee ledger modal."""
+
+    def post(self, request):
+        from finance.services.daraja import DarajaError, initiate_stk_push
+
+        school = _ensure_school(request)
+        if school is None:
+            return redirect('tenants:select')
+
+        invoice_id = (request.POST.get('invoice_id') or '').strip()
+        phone = (request.POST.get('phone_number') or '').strip()
+        amount_raw = (request.POST.get('amount') or '').strip()
+
+        invoice = (
+            FeeInvoice.objects.filter(school=school, pk=invoice_id)
+            .select_related('student')
+            .first()
+        )
+        if invoice is None:
+            messages.error(request, 'Invoice not found.')
+            return redirect('dashboard:fee_ledger')
+
+        try:
+            amount = Decimal(amount_raw)
+        except Exception:
+            messages.error(request, 'Enter a valid amount.')
+            return redirect('dashboard:fee_ledger')
+
+        if amount <= 0:
+            messages.error(request, 'Amount must be greater than zero.')
+            return redirect('dashboard:fee_ledger')
+
+        phone = phone or invoice.student.parent_phone
+        try:
+            ok, payment_tx, response_json = initiate_stk_push(
+                school,
+                invoice,
+                phone,
+                amount,
+            )
+        except (DarajaError, ValueError) as exc:
+            messages.error(request, str(exc))
+            return redirect('dashboard:fee_ledger')
+
+        if ok:
+            messages.success(
+                request,
+                response_json.get('CustomerMessage')
+                or f'STK push sent for {invoice.student.full_name} ({amount}).',
+            )
+        else:
+            messages.error(
+                request,
+                payment_tx.result_desc or 'STK push failed.',
+            )
+        return redirect('dashboard:fee_ledger')
+
+
+def _chat_session_queryset(school):
+    return ConversationSession.objects.filter(school=school).select_related(
+        'parent_contact',
+        'active_student',
+        'active_student__current_stream',
+        'assigned_staff',
+    )
+
+
+def _chat_tab_filter(qs, tab):
+    tab = (tab or 'escalated').strip().lower()
+    if tab == 'bot':
+        return qs.filter(status=ConversationSession.Status.BOT_ACTIVE), 'bot'
+    if tab == 'all':
+        return qs.exclude(status=ConversationSession.Status.CLOSED), 'all'
+    return (
+        qs.filter(status=ConversationSession.Status.ESCALATED_PENDING),
+        'escalated',
+    )
+
+
+def _student_current_balance(school, student):
+    if student is None:
+        return None
+    qs = FeeInvoice.objects.filter(school=school, student=student)
+    year = AcademicYear.objects.filter(school=school, is_current=True).first()
+    invoice = None
+    if year is not None:
+        year_qs = qs.filter(term__icontains=year.name)
+        invoice = (
+            year_qs.exclude(status=FeeInvoice.Status.PAID)
+            .order_by('-due_date', '-created_at')
+            .first()
+            or year_qs.order_by('-due_date', '-created_at').first()
+        )
+    if invoice is None:
+        invoice = (
+            qs.exclude(status=FeeInvoice.Status.PAID)
+            .order_by('-due_date', '-created_at')
+            .first()
+            or qs.order_by('-due_date', '-created_at').first()
+        )
+    if invoice is None:
+        return Decimal('0.00')
+    return invoice.balance
+
+
+def _get_chat_session(school, session_id):
+    return get_object_or_404(
+        _chat_session_queryset(school),
+        pk=session_id,
+        school=school,
+    )
+
+
+def _chat_thread_rows(school, sessions):
+    rows = []
+    for session in sessions:
+        last_msg = (
+            MessageLog.objects.filter(school=school, session=session)
+            .order_by('-created_at')
+            .first()
+        )
+        student = session.active_student
+        excerpt = ''
+        if last_msg is not None:
+            excerpt = (last_msg.body or '').strip()
+            if excerpt.startswith('[ESCALATION]'):
+                excerpt = excerpt.replace('[ESCALATION]', '', 1).strip()
+            if len(excerpt) > 90:
+                excerpt = f'{excerpt[:87]}…'
+        rows.append(
+            {
+                'session': session,
+                'student_name': (
+                    student.full_name
+                    if student is not None
+                    else (
+                        session.parent_contact.parent_name
+                        or session.parent_contact.phone_number
+                    )
+                ),
+                'phone': session.parent_contact.phone_number,
+                'excerpt': excerpt or 'No messages yet',
+                'timestamp': session.last_message_at or session.created_at,
+            }
+        )
+    return rows
+
+
+def _chat_console_context(request, school, *, tab='escalated', session=None):
+    base_qs = _chat_session_queryset(school).order_by(
+        '-last_message_at',
+        '-created_at',
+    )
+    filtered_qs, active_tab = _chat_tab_filter(base_qs, tab)
+    sessions = list(filtered_qs[:80])
+    thread_rows = _chat_thread_rows(school, sessions)
+
+    chat_messages = []
+    current_balance = None
+    if session is not None:
+        chat_messages = list(
+            MessageLog.objects.filter(school=school, session=session).order_by(
+                'created_at'
+            )
+        )
+        current_balance = _student_current_balance(
+            school,
+            session.active_student,
+        )
+
+    return {
+        'page_title': 'WhatsApp console',
+        'active_tab': active_tab,
+        'thread_rows': thread_rows,
+        'session': session,
+        'chat_messages': chat_messages,
+        'current_balance': current_balance,
+        'status_bot_active': ConversationSession.Status.BOT_ACTIVE,
+        'status_escalated': ConversationSession.Status.ESCALATED_PENDING,
+        'status_staff_active': ConversationSession.Status.STAFF_ACTIVE,
+    }
+
+
+@method_decorator(school_admin_required, name='dispatch')
+class ChatConsoleView(LoginRequiredMixin, View):
+    """Two-pane WhatsApp conversation console with staff takeover."""
+
+    template_name = 'dashboard/chat_console.html'
+
+    def get(self, request, session_id=None):
+        school = _ensure_school(request)
+        if school is None:
+            return redirect('tenants:select')
+
+        tab = (request.GET.get('tab') or 'escalated').strip().lower()
+        session = None
+        if session_id is not None:
+            session = _get_chat_session(school, session_id)
+
+        return render(
+            request,
+            self.template_name,
+            _chat_console_context(
+                request,
+                school,
+                tab=tab,
+                session=session,
+            ),
+        )
+
+
+@method_decorator(school_admin_required, name='dispatch')
+class ChatMessagesPartialView(LoginRequiredMixin, View):
+    """HTMX poll partial for the active chat message feed."""
+
+    template_name = 'dashboard/partials/chat_message_feed.html'
+
+    def get(self, request, session_id):
+        school = _ensure_school(request)
+        if school is None:
+            return HttpResponseForbidden('No school context.')
+
+        session = _get_chat_session(school, session_id)
+        chat_messages = MessageLog.objects.filter(
+            school=school,
+            session=session,
+        ).order_by('created_at')
+        return render(
+            request,
+            self.template_name,
+            {
+                'session': session,
+                'chat_messages': chat_messages,
+            },
+        )
+
+
+@method_decorator(school_admin_required, name='dispatch')
+class ChatSendView(LoginRequiredMixin, View):
+    """Staff outbound WhatsApp reply via Twilio."""
+
+    template_name = 'dashboard/partials/chat_message_feed.html'
+
+    def post(self, request, session_id):
+        school = _ensure_school(request)
+        if school is None:
+            return HttpResponseForbidden('No school context.')
+
+        session = _get_chat_session(school, session_id)
+        if session.status != ConversationSession.Status.STAFF_ACTIVE:
+            return HttpResponseForbidden(
+                'Claim this thread before sending staff replies.'
+            )
+
+        body = (request.POST.get('body') or '').strip()
+        if body:
+            ok, detail = send_whatsapp_message(
+                school,
+                session.parent_contact.phone_number,
+                body,
+                session=session,
+                sender_type=MessageLog.Sender.STAFF,
+            )
+            if not ok:
+                return HttpResponse(
+                    f'<div class="px-4 py-2 text-sm text-red-400">'
+                    f'Failed to send: {detail}</div>',
+                    status=502,
+                )
+
+        chat_messages = MessageLog.objects.filter(
+            school=school,
+            session=session,
+        ).order_by('created_at')
+        return render(
+            request,
+            self.template_name,
+            {
+                'session': session,
+                'chat_messages': chat_messages,
+            },
+        )
+
+
+@method_decorator(school_admin_required, name='dispatch')
+class ChatClaimView(LoginRequiredMixin, View):
+    """Take over an escalated thread (locks AI out)."""
+
+    def post(self, request, session_id):
+        school = _ensure_school(request)
+        if school is None:
+            return redirect('tenants:select')
+
+        session = _get_chat_session(school, session_id)
+        session.status = ConversationSession.Status.STAFF_ACTIVE
+        session.assigned_staff = request.user
+        session.save(update_fields=['status', 'assigned_staff'])
+        messages.success(request, 'You claimed this conversation.')
+        tab = (request.POST.get('tab') or request.GET.get('tab') or 'escalated')
+        return redirect(
+            f"{reverse('dashboard:chat_console_session', kwargs={'session_id': session.pk})}"
+            f'?tab={tab}'
+        )
+
+
+@method_decorator(school_admin_required, name='dispatch')
+class ChatReleaseView(LoginRequiredMixin, View):
+    """Return a staff-held thread to the AI agent."""
+
+    def post(self, request, session_id):
+        school = _ensure_school(request)
+        if school is None:
+            return redirect('tenants:select')
+
+        session = _get_chat_session(school, session_id)
+        session.status = ConversationSession.Status.BOT_ACTIVE
+        session.assigned_staff = None
+        session.save(update_fields=['status', 'assigned_staff'])
+        messages.success(request, 'Conversation released back to the AI agent.')
+        tab = (request.POST.get('tab') or request.GET.get('tab') or 'bot')
+        return redirect(
+            f"{reverse('dashboard:chat_console_session', kwargs={'session_id': session.pk})}"
+            f'?tab={tab}'
+        )
+
+
+@method_decorator(school_admin_required, name='dispatch')
+class ChatResolveView(LoginRequiredMixin, View):
+    """Mark a staff-held thread as resolved (closed)."""
+
+    def post(self, request, session_id):
+        school = _ensure_school(request)
+        if school is None:
+            return redirect('tenants:select')
+
+        session = _get_chat_session(school, session_id)
+        session.status = ConversationSession.Status.CLOSED
+        session.assigned_staff = None
+        session.save(update_fields=['status', 'assigned_staff'])
+        messages.success(request, 'Conversation marked as resolved.')
+        tab = (request.POST.get('tab') or request.GET.get('tab') or 'all')
+        return redirect(f"{reverse('dashboard:chat_console')}?tab={tab}")
+
+
+# Backwards-compatible alias for older fee-ledger / docs links.
+ConversationConsoleView = ChatConsoleView
+
+
+@method_decorator(school_admin_required, name='dispatch')
+class ExecutiveReportListView(LoginRequiredMixin, View):
+    """Latest weekly briefing cards + archive list."""
+
+    template_name = 'dashboard/reports.html'
+
+    def get(self, request):
+        school = _ensure_school(request)
+        if school is None:
+            return redirect('tenants:select')
+
+        reports = list(
+            ExecutiveWeeklyReport.objects.filter(school=school).order_by(
+                '-year',
+                '-week_number',
+                '-created_at',
+            )[:52]
+        )
+        latest = reports[0] if reports else None
+        return render(
+            request,
+            self.template_name,
+            {
+                'page_title': 'Executive reports',
+                'latest_report': latest,
+                'reports': reports,
+            },
+        )
+
+
+@method_decorator(school_admin_required, name='dispatch')
+class ExecutiveReportDetailView(LoginRequiredMixin, View):
+    """Full AI markdown briefing for one weekly report."""
+
+    template_name = 'dashboard/report_detail.html'
+
+    def get(self, request, report_id):
+        school = _ensure_school(request)
+        if school is None:
+            return redirect('tenants:select')
+
+        report = get_object_or_404(
+            ExecutiveWeeklyReport,
+            pk=report_id,
+            school=school,
+        )
+        return render(
+            request,
+            self.template_name,
+            {
+                'page_title': f'Week {report.week_number} · {report.year}',
+                'report': report,
+            },
+        )
 
 
 @method_decorator(school_admin_required, name='dispatch')

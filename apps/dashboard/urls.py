@@ -1,9 +1,27 @@
 from django.urls import path
 
+from communications.views import (
+    BroadcastCreateView,
+    BroadcastListView,
+    BroadcastPreviewView,
+)
 from dashboard.views import (
     AssignClassTeacherView,
     AssignGradeTeacherView,
+    ChatClaimView,
+    ChatConsoleView,
+    ChatMessagesPartialView,
+    ChatReleaseView,
+    ChatResolveView,
+    ChatSendView,
     ClassStreamAssignmentView,
+    ConversationConsoleView,
+    DashboardOverviewView,
+    ExecutiveReportDetailView,
+    ExecutiveReportListView,
+    FeeLedgerSearchView,
+    FeeLedgerStkPushView,
+    FeeLedgerView,
     GradeCreateView,
     GradeEditView,
     GradeFinanceView,
@@ -12,7 +30,6 @@ from dashboard.views import (
     GradeStudentEditView,
     GradeStudentImportTemplateView,
     GradeStudentImportView,
-    OverviewView,
     StreamCreateView,
     StreamFinanceView,
     StreamRosterView,
@@ -26,7 +43,79 @@ from dashboard.views import (
 app_name = 'dashboard'
 
 urlpatterns = [
-    path('app/', OverviewView.as_view(), name='overview'),
+    path('app/', DashboardOverviewView.as_view(), name='overview'),
+    path('dashboard/fees/', FeeLedgerView.as_view(), name='fee_ledger'),
+    path(
+        'dashboard/fees/search/',
+        FeeLedgerSearchView.as_view(),
+        name='fee_ledger_search',
+    ),
+    path(
+        'dashboard/fees/stk/',
+        FeeLedgerStkPushView.as_view(),
+        name='fee_ledger_stk',
+    ),
+    path(
+        'dashboard/broadcasts/',
+        BroadcastListView.as_view(),
+        name='broadcast_list',
+    ),
+    path(
+        'dashboard/broadcasts/create/',
+        BroadcastCreateView.as_view(),
+        name='broadcast_create',
+    ),
+    path(
+        'dashboard/broadcasts/preview/',
+        BroadcastPreviewView.as_view(),
+        name='broadcast_preview',
+    ),
+    path(
+        'dashboard/reports/',
+        ExecutiveReportListView.as_view(),
+        name='report_list',
+    ),
+    path(
+        'dashboard/reports/<int:report_id>/',
+        ExecutiveReportDetailView.as_view(),
+        name='report_detail',
+    ),
+    path('dashboard/chats/', ChatConsoleView.as_view(), name='chat_console'),
+    path(
+        'dashboard/chats/<int:session_id>/',
+        ChatConsoleView.as_view(),
+        name='chat_console_session',
+    ),
+    path(
+        'dashboard/chats/<int:session_id>/messages/',
+        ChatMessagesPartialView.as_view(),
+        name='chat_messages',
+    ),
+    path(
+        'dashboard/chats/<int:session_id>/send/',
+        ChatSendView.as_view(),
+        name='chat_send',
+    ),
+    path(
+        'dashboard/chats/<int:session_id>/claim/',
+        ChatClaimView.as_view(),
+        name='chat_claim',
+    ),
+    path(
+        'dashboard/chats/<int:session_id>/release/',
+        ChatReleaseView.as_view(),
+        name='chat_release',
+    ),
+    path(
+        'dashboard/chats/<int:session_id>/resolve/',
+        ChatResolveView.as_view(),
+        name='chat_resolve',
+    ),
+    path(
+        'dashboard/conversations/<int:session_id>/',
+        ConversationConsoleView.as_view(),
+        name='conversation_console',
+    ),
     path('teachers/', TeacherManagementView.as_view(), name='teachers'),
     path('classes/', ClassStreamAssignmentView.as_view(), name='classes'),
     path('classes/new/', GradeCreateView.as_view(), name='grade_create'),

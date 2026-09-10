@@ -1,0 +1,68 @@
+{% for row in ledger_rows %}
+  <tr class="border-b border-zinc-800 align-top">
+    <td class="px-4 py-3">
+      <p class="font-medium text-zinc-100">{{ row.student.full_name }}</p>
+      <p class="mt-0.5 font-mono text-[10px] uppercase text-zinc-500">{{ row.student.admission_number }}</p>
+    </td>
+    <td class="px-4 py-3 text-zinc-400">
+      {% if row.student.current_stream %}
+        {{ row.student.current_stream }}
+      {% elif row.student.grade_level %}
+        {{ row.student.grade_level.name }}
+      {% else %}
+        —
+      {% endif %}
+    </td>
+    <td class="px-4 py-3 text-zinc-300">{{ row.invoice.term }}</td>
+    <td class="px-4 py-3 font-mono text-xs text-zinc-300">{{ row.invoice.total_amount }}</td>
+    <td class="px-4 py-3 font-mono text-xs text-zinc-300">{{ row.invoice.paid_amount }}</td>
+    <td class="px-4 py-3 font-mono text-xs text-yellow-400">{{ row.balance }}</td>
+    <td class="px-4 py-3">
+      <span class="font-mono text-[10px] uppercase tracking-wider {% if row.invoice.status == 'PAID' %}text-yellow-400{% elif row.invoice.status == 'OVERDUE' %}text-red-400{% else %}text-zinc-400{% endif %}">
+        {{ row.invoice.get_status_display }}
+      </span>
+    </td>
+    <td class="px-4 py-3">
+      <div class="flex flex-wrap gap-2">
+        {% if row.profile_url %}
+          <a
+            href="{{ row.profile_url }}"
+            class="rounded-md border border-zinc-800 px-2 py-1 text-xs text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+          >
+            Profile
+          </a>
+        {% endif %}
+        <button
+          type="button"
+          class="open-stk-modal rounded-md border border-zinc-800 px-2 py-1 text-xs text-yellow-400 hover:border-yellow-400"
+          data-invoice-id="{{ row.invoice.pk }}"
+          data-student="{{ row.student.full_name }} · {{ row.student.admission_number }}"
+          data-phone="{{ row.student.parent_phone }}"
+          data-balance="{{ row.balance }}"
+        >
+          STK push
+        </button>
+        {% if row.conversation %}
+          <a
+            href="{% url 'dashboard:chat_console_session' row.conversation.pk %}?tab=all"
+            class="rounded-md border border-zinc-800 px-2 py-1 text-xs text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+          >
+            WhatsApp
+          </a>
+        {% else %}
+          <span class="rounded-md border border-zinc-900 px-2 py-1 text-xs text-zinc-600" title="No active conversation">WhatsApp</span>
+        {% endif %}
+      </div>
+    </td>
+  </tr>
+{% empty %}
+  <tr>
+    <td colspan="8" class="px-4 py-8 text-center text-sm text-zinc-500">
+      {% if query %}
+        No invoices match “{{ query }}”.
+      {% else %}
+        No fee invoices match these filters.
+      {% endif %}
+    </td>
+  </tr>
+{% endfor %}

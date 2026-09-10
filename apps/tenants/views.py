@@ -158,44 +158,51 @@ class TenantCreateView(LoginRequiredMixin, View):
 class ProfileView(LoginRequiredMixin, View):
     template_name = 'tenants/profile.html'
 
+    def _context(self, request, *, profile_form=None, password_form=None, open_password_modal=False):
+        return {
+            'page_title': 'Profile',
+            'profile_form': profile_form or ProfileForm(instance=request.user),
+            'password_form': password_form
+            or StyledPasswordChangeForm(user=request.user),
+            'open_password_modal': open_password_modal,
+        }
+
     def get(self, request):
-        return render(
-            request,
-            self.template_name,
-            {
-                'page_title': 'Profile',
-                'profile_form': ProfileForm(instance=request.user),
-                'password_form': StyledPasswordChangeForm(user=request.user),
-            },
-        )
+        return render(request, self.template_name, self._context(request))
 
     def post(self, request):
         action = request.POST.get('action', 'profile')
-        profile_form = ProfileForm(instance=request.user)
-        password_form = StyledPasswordChangeForm(user=request.user)
 
         if action == 'password':
-            password_form = StyledPasswordChangeForm(user=request.user, data=request.POST)
+            password_form = StyledPasswordChangeForm(
+                user=request.user,
+                data=request.POST,
+            )
             if password_form.is_valid():
                 user = password_form.save()
                 update_session_auth_hash(request, user)
                 messages.success(request, 'Password updated.')
                 return redirect('tenants:profile')
-        else:
-            profile_form = ProfileForm(request.POST, instance=request.user)
-            if profile_form.is_valid():
-                profile_form.save()
-                messages.success(request, 'Profile updated.')
-                return redirect('tenants:profile')
+            return render(
+                request,
+                self.template_name,
+                self._context(
+                    request,
+                    password_form=password_form,
+                    open_password_modal=True,
+                ),
+                status=400,
+            )
 
+        profile_form = ProfileForm(request.POST, instance=request.user)
+        if profile_form.is_valid():
+            profile_form.save()
+            messages.success(request, 'Profile updated.')
+            return redirect('tenants:profile')
         return render(
             request,
             self.template_name,
-            {
-                'page_title': 'Profile',
-                'profile_form': profile_form,
-                'password_form': password_form,
-            },
+            self._context(request, profile_form=profile_form),
             status=400,
         )
 

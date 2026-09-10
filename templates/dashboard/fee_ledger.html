@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Fee ledger · Kora{% endblock %}
+
+{% block page_title %}Fee ledger{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">Fee ledger</span>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">Fee ledger</h2>
+        <p class="mt-2 max-w-2xl text-sm text-zinc-400">
+          Search and filter student invoices, trigger STK pushes, and open WhatsApp conversations.
+        </p>
+      </div>
+      <a
+        href="{% url 'finance:overview' %}"
+        class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+      >
+        School finance
+      </a>
+    </div>
+
+    <form
+      id="ledger-filters"
+      class="grid gap-3 rounded-md border border-zinc-800 bg-black p-4 sm:grid-cols-2 lg:grid-cols-4"
+      method="get"
+      action="{% url 'dashboard:fee_ledger' %}"
+      hx-get="{% url 'dashboard:fee_ledger_search' %}"
+      hx-trigger="change delay:50ms from:select, submit"
+      hx-target="#ledger-table-body"
+      hx-include="[name='q'],[name='grade'],[name='stream'],[name='status']"
+      hx-indicator="#search-spinner"
+    >
+      <div>
+        <label for="filter-grade" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Grade</label>
+        <select
+          id="filter-grade"
+          name="grade"
+          class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+        >
+          <option value="">All grades</option>
+          {% for grade in grades %}
+            <option value="{{ grade.pk }}" {% if filters.grade == grade.pk|stringformat:"s" %}selected{% endif %}>{{ grade.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="filter-stream" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Stream</label>
+        <select
+          id="filter-stream"
+          name="stream"
+          class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+        >
+          <option value="">All streams</option>
+          {% for stream in streams %}
+            <option
+              value="{{ stream.pk }}"
+              data-grade="{{ stream.grade_level_id }}"
+              {% if filters.stream == stream.pk|stringformat:"s" %}selected{% endif %}
+            >{{ stream }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="filter-status" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Status</label>
+        <select
+          id="filter-status"
+          name="status"
+          class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+        >
+          {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="ledger-search" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Search</label>
+        <div class="relative">
+          <input
+            id="ledger-search"
+            type="search"
+            name="q"
+            value="{{ query }}"
+            placeholder="Name or admission number"
+            class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 pr-10 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+            hx-get="{% url 'dashboard:fee_ledger_search' %}"
+            hx-trigger="keyup changed delay:300ms, search"
+            hx-target="#ledger-table-body"
+            hx-include="#filter-grade,#filter-stream,#filter-status"
+            hx-indicator="#search-spinner"
+            autocomplete="off"
+          >
+          <span
+            id="search-spinner"
+            class="htmx-indicator absolute inset-y-0 right-3 inline-flex items-center text-zinc-500"
+            aria-hidden="true"
+          >
+            <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"></path>
+            </svg>
+          </span>
+        </div>
+      </div>
+    </form>
+
+    <div class="overflow-x-auto rounded-md border border-zinc-800">
+      <table class="min-w-full border-collapse text-left text-sm">
+        <thead class="bg-black">
+          <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+            <th class="px-4 py-3 font-medium">Student</th>
+            <th class="px-4 py-3 font-medium">Class</th>
+            <th class="px-4 py-3 font-medium">Term</th>
+            <th class="px-4 py-3 font-medium">Billed</th>
+            <th class="px-4 py-3 font-medium">Paid</th>
+            <th class="px-4 py-3 font-medium">Balance</th>
+            <th class="px-4 py-3 font-medium">Status</th>
+            <th class="px-4 py-3 font-medium">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ledger-table-body" class="bg-zinc-950">
+          {% include "dashboard/partials/fee_ledger_rows.html" %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="stk-backdrop" class="hidden fixed inset-0 z-50 bg-black/80" aria-hidden="true"></div>
+  <div
+    id="stk-modal"
+    class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="stk-modal-title"
+  >
+    <div class="w-full max-w-md rounded-md border border-zinc-800 bg-zinc-950 p-5">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h3 id="stk-modal-title" class="text-sm font-semibold text-zinc-100">Initiate STK push</h3>
+          <p id="stk-student-label" class="mt-1 text-sm text-zinc-400"></p>
+        </div>
+        <button type="button" id="stk-close" class="text-zinc-500 hover:text-yellow-400" aria-label="Close">✕</button>
+      </div>
+      <form method="post" action="{% url 'dashboard:fee_ledger_stk' %}" class="mt-5 space-y-4" hx-boost="false">
+        {% csrf_token %}
+        <input type="hidden" name="invoice_id" id="stk-invoice-id" value="">
+        <div>
+          <label for="stk-amount" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Amount</label>
+          <input
+            id="stk-amount"
+            name="amount"
+            type="number"
+            step="0.01"
+            min="0.01"
+            required
+            class="w-full rounded-md border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+          >
+        </div>
+        <div>
+          <label for="stk-phone" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Phone</label>
+          <input
+            id="stk-phone"
+            name="phone_number"
+            type="text"
+            required
+            placeholder="+2547…"
+            class="w-full rounded-md border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+          >
+        </div>
+        <button type="submit" class="w-full rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
+          Send STK push
+        </button>
+      </form>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const gradeSelect = document.getElementById('filter-grade');
+  const streamSelect = document.getElementById('filter-stream');
+  const streamsByGrade = {{ streams_by_grade_json|safe }};
+
+  function refreshStreams() {
+    const gradeId = gradeSelect.value;
+    const current = streamSelect.value;
+    const options = ['<option value="">All streams</option>'];
+    const source = gradeId
+      ? (streamsByGrade[gradeId] || [])
+      : Object.values(streamsByGrade).flat();
+    source.forEach(function (item) {
+      const selected = item.id === current ? ' selected' : '';
+      options.push('<option value="' + item.id + '"' + selected + '>' + item.name + '</option>');
+    });
+    streamSelect.innerHTML = options.join('');
+  }
+
+  gradeSelect.addEventListener('change', function () {
+    streamSelect.value = '';
+    refreshStreams();
+  });
+  refreshStreams();
+
+  const backdrop = document.getElementById('stk-backdrop');
+  const modal = document.getElementById('stk-modal');
+  const closeBtn = document.getElementById('stk-close');
+  const invoiceInput = document.getElementById('stk-invoice-id');
+  const amountInput = document.getElementById('stk-amount');
+  const phoneInput = document.getElementById('stk-phone');
+  const studentLabel = document.getElementById('stk-student-label');
+
+  function openStk(btn) {
+    invoiceInput.value = btn.getAttribute('data-invoice-id') || '';
+    amountInput.value = btn.getAttribute('data-balance') || '';
+    phoneInput.value = btn.getAttribute('data-phone') || '';
+    studentLabel.textContent = btn.getAttribute('data-student') || '';
+    backdrop.classList.remove('hidden');
+    modal.classList.remove('hidden');
+    if (window.KoraOverlay) window.KoraOverlay.lock();
+  }
+  function closeStk() {
+    backdrop.classList.add('hidden');
+    modal.classList.add('hidden');
+    if (window.KoraOverlay) window.KoraOverlay.unlock();
+  }
+
+  document.body.addEventListener('click', function (e) {
+    const btn = e.target.closest('.open-stk-modal');
+    if (btn) {
+      e.preventDefault();
+      openStk(btn);
+    }
+  });
+  closeBtn.addEventListener('click', closeStk);
+  backdrop.addEventListener('click', closeStk);
+})();
+</script>
+{% endblock %}

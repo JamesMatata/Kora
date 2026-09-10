@@ -17,6 +17,8 @@ TENANT_EXEMPT_PREFIXES = (
     '/tenants/inbox/',
     '/tenants/invitations/',
     '/tenants/notifications/',
+    '/api/v1/finance/daraja/',
+    '/api/v1/communications/twilio/',
     '/admin/',
     '/static/',
 )

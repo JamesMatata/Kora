@@ -12,71 +12,207 @@
 {% endblock %}
 
 {% block content %}
-  <div class="mx-auto max-w-xl space-y-8">
-    <div class="flex items-center gap-4">
-      {% user_avatar user size=64 %}
-      <div>
-        <h2 class="text-2xl font-semibold text-zinc-100">{{ user.get_full_name|default:user.email }}</h2>
-        <p class="mt-1 text-sm text-zinc-400">Your account details across all schools.</p>
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex items-start gap-4">
+        <div class="shrink-0 overflow-hidden rounded-full ring-1 ring-zinc-800">
+          {% user_avatar user size=48 %}
+        </div>
+        <div>
+          <h2 class="text-2xl font-semibold text-zinc-100">
+            {{ user.get_full_name|default:user.email }}
+          </h2>
+          <p class="mt-2 max-w-2xl text-sm text-zinc-400">
+            Update your account details. Changes apply across every school you belong to.
+          </p>
+        </div>
       </div>
+      <button
+        type="button"
+        id="open-password-modal"
+        class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+      >
+        Change password
+      </button>
     </div>
 
-    <form method="post" class="space-y-4 rounded-md border border-zinc-800 bg-black p-5" hx-boost="false">
+    <form
+      method="post"
+      action="{% url 'tenants:profile' %}"
+      class="space-y-4 rounded-md border border-zinc-800 bg-black p-4"
+      hx-boost="false"
+    >
       {% csrf_token %}
       <input type="hidden" name="action" value="profile">
       <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Account</p>
-      {% if profile_form.non_field_errors %}
-        <div class="rounded-md border border-red-500 px-3 py-2 text-sm text-red-400">{{ profile_form.non_field_errors }}</div>
-      {% endif %}
-      {% for field in profile_form %}
-        <div>
-          <label for="{{ field.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">{{ field.label }}</label>
-          {{ field }}
-          {% if field.errors %}
-            <p class="mt-1 text-xs text-red-400">{{ field.errors|striptags }}</p>
-          {% endif %}
-        </div>
-      {% endfor %}
-      <button type="submit" class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
-        Save profile
-      </button>
-    </form>
 
-    <form method="post" class="space-y-4 rounded-md border border-zinc-800 bg-black p-5" hx-boost="false">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="password">
-      <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Change password</p>
-      {% if password_form.non_field_errors %}
-        <div class="rounded-md border border-red-500 px-3 py-2 text-sm text-red-400">{{ password_form.non_field_errors }}</div>
-      {% endif %}
-      {% for field in password_form %}
-        <div>
-          <label for="{{ field.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">{{ field.label }}</label>
-          {{ field }}
-          {% if field.errors %}
-            <p class="mt-1 text-xs text-red-400">{{ field.errors|striptags }}</p>
-          {% endif %}
+      {% if profile_form.non_field_errors %}
+        <div class="rounded-md border border-red-400/40 bg-red-400/10 px-3 py-2 text-sm text-red-300">
+          {{ profile_form.non_field_errors|striptags }}
         </div>
-      {% endfor %}
-      <button type="submit" class="rounded-md border border-zinc-700 px-4 py-2.5 text-sm font-semibold text-zinc-100 hover:border-yellow-400 hover:text-yellow-400">
-        Update password
-      </button>
+      {% endif %}
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        {% for field in profile_form %}
+          <div class="{% if field.name == 'email' %}sm:col-span-2{% endif %}">
+            <label
+              for="{{ field.id_for_label }}"
+              class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500"
+            >{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+              <p class="mt-1 text-xs text-red-400">{{ field.errors|striptags }}</p>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="flex justify-start border-t border-zinc-800 pt-4">
+        <button
+          type="submit"
+          class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+        >
+          Save profile
+        </button>
+      </div>
     </form>
 
     {% if user_memberships %}
-      <section class="space-y-3">
+      <div class="space-y-3">
         <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Your schools</p>
-        <ul class="divide-y divide-zinc-800 overflow-hidden rounded-md border border-zinc-800 bg-black">
-          {% for membership in user_memberships %}
-            <li class="flex items-center justify-between gap-3 px-4 py-3">
-              <div class="min-w-0">
-                <p class="truncate text-sm font-medium text-zinc-100">{{ membership.school.name }}</p>
-                <p class="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-500">{{ membership.role_label }}</p>
-              </div>
-            </li>
-          {% endfor %}
-        </ul>
-      </section>
+        <div class="overflow-x-auto rounded-md border border-zinc-800">
+          <table class="min-w-full border-collapse text-left text-sm">
+            <thead class="bg-black">
+              <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                <th class="px-4 py-3 font-medium">School</th>
+                <th class="px-4 py-3 font-medium">Role</th>
+                <th class="px-4 py-3 font-medium">Code</th>
+              </tr>
+            </thead>
+            <tbody class="bg-zinc-950">
+              {% for membership in user_memberships %}
+                <tr class="border-b border-zinc-800">
+                  <td class="px-4 py-3 font-medium text-zinc-100">{{ membership.school.name }}</td>
+                  <td class="px-4 py-3">
+                    <span class="font-mono text-[10px] uppercase tracking-wider text-yellow-400">
+                      {{ membership.role_label }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 font-mono text-xs text-zinc-500">{{ membership.school.code }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
     {% endif %}
   </div>
+
+  <div id="password-backdrop" class="hidden fixed inset-0 z-50 bg-black/80" aria-hidden="true"></div>
+  <div
+    id="password-modal"
+    class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="password-modal-title"
+  >
+    <div class="w-full max-w-md rounded-md border border-zinc-800 bg-zinc-950 p-5">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h3 id="password-modal-title" class="text-sm font-semibold text-zinc-100">Change password</h3>
+          <p class="mt-1 text-sm text-zinc-400">Enter your current password, then choose a new one.</p>
+        </div>
+        <button type="button" id="password-close" class="text-zinc-500 hover:text-yellow-400" aria-label="Close">✕</button>
+      </div>
+
+      <form
+        method="post"
+        action="{% url 'tenants:profile' %}"
+        class="mt-5 space-y-4"
+        hx-boost="false"
+      >
+        {% csrf_token %}
+        <input type="hidden" name="action" value="password">
+
+        {% if password_form.non_field_errors %}
+          <div class="rounded-md border border-red-400/40 bg-red-400/10 px-3 py-2 text-sm text-red-300">
+            {{ password_form.non_field_errors|striptags }}
+          </div>
+        {% endif %}
+
+        {% for field in password_form %}
+          <div>
+            <label
+              for="{{ field.id_for_label }}"
+              class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500"
+            >{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}
+              <p class="mt-1 text-xs text-zinc-500">{{ field.help_text|striptags }}</p>
+            {% endif %}
+            {% if field.errors %}
+              <p class="mt-1 text-xs text-red-400">{{ field.errors|striptags }}</p>
+            {% endif %}
+          </div>
+        {% endfor %}
+
+        <div class="flex flex-wrap justify-end gap-2 pt-1">
+          <button
+            type="button"
+            id="password-cancel"
+            class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+          >
+            Update password
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const backdrop = document.getElementById('password-backdrop');
+  const modal = document.getElementById('password-modal');
+  const openBtn = document.getElementById('open-password-modal');
+  const closeBtn = document.getElementById('password-close');
+  const cancelBtn = document.getElementById('password-cancel');
+  if (!backdrop || !modal || !openBtn) return;
+
+  function openPasswordModal() {
+    backdrop.classList.remove('hidden');
+    modal.classList.remove('hidden');
+    if (window.KoraOverlay) window.KoraOverlay.lock();
+    const first = modal.querySelector('input:not([type="hidden"])');
+    if (first) first.focus();
+  }
+
+  function closePasswordModal() {
+    backdrop.classList.add('hidden');
+    modal.classList.add('hidden');
+    if (window.KoraOverlay) window.KoraOverlay.unlock();
+  }
+
+  openBtn.addEventListener('click', openPasswordModal);
+  if (closeBtn) closeBtn.addEventListener('click', closePasswordModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closePasswordModal);
+  backdrop.addEventListener('click', closePasswordModal);
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
+      closePasswordModal();
+    }
+  });
+
+  {% if open_password_modal %}
+  openPasswordModal();
+  {% endif %}
+})();
+</script>
 {% endblock %}

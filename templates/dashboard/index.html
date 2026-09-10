@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} · Kora{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    {% if overview_mode == 'teacher' %}
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">My Classes</h2>
+        <p class="mt-2 max-w-2xl text-sm text-zinc-400">
+          Your assigned streams, roster sizes, and quick access to class lists.
+        </p>
+      </div>
+
+      {% if request.school %}
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">My Streams</p>
+            <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ my_stream_count }}</p>
+          </div>
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Active Students</p>
+            <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ my_student_count }}</p>
+          </div>
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Inactive</p>
+            <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ inactive_student_count }}</p>
+          </div>
+        </div>
+
+        {% if stream_cards %}
+          <div class="space-y-3">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Assigned streams</p>
+            <ul class="divide-y divide-zinc-800 overflow-hidden rounded-md border border-zinc-800 bg-black">
+              {% for card in stream_cards %}
+                <li class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                  <div>
+                    <p class="text-sm font-semibold text-zinc-100">{{ card.stream }}</p>
+                    <p class="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+                      {{ card.student_count }} active student{{ card.student_count|pluralize }}
+                    </p>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <a
+                      href="{% url 'dashboard:stream_roster' card.stream.slug %}"
+                      class="rounded-md border border-yellow-400 bg-yellow-400 px-3 py-1.5 text-sm font-semibold text-black hover:bg-yellow-300"
+                    >
+                      Open roster
+                    </a>
+                    <a
+                      href="{% url 'dashboard:stream_finance' card.stream.slug %}"
+                      class="rounded-md border border-zinc-800 px-3 py-1.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+                    >
+                      Finance
+                    </a>
+                  </div>
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% else %}
+          <div class="rounded-md border border-zinc-800 bg-black px-4 py-6 text-sm text-zinc-400">
+            No class streams are assigned to you yet. An admin can assign you as class teacher from Classes.
+          </div>
+        {% endif %}
+      {% else %}
+        <div class="rounded-md border border-zinc-800 bg-black px-4 py-6 text-sm text-zinc-400">
+          No school is linked to this account.
+        </div>
+      {% endif %}
+
+    {% else %}
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 class="text-2xl font-semibold text-zinc-100">Command Center</h2>
+          <p class="mt-2 max-w-2xl text-sm text-zinc-400">
+            Real-time collections, promises, and conversations that need staff attention
+            {% if current_academic_year %}· {{ current_academic_year.name }}{% endif %}.
+          </p>
+        </div>
+        {% if request.school and is_admin %}
+          <div class="flex shrink-0 flex-wrap gap-3">
+            <a href="{% url 'finance:overview' %}" class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300">Finance</a>
+            <a href="{% url 'dashboard:teachers' %}" class="rounded-md border border-zinc-800 bg-black px-4 py-2 text-sm font-semibold text-yellow-400 hover:border-yellow-400">Manage Teachers</a>
+            <a href="{% url 'dashboard:classes' %}" class="rounded-md border border-zinc-800 bg-black px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400">Classes</a>
+          </div>
+        {% endif %}
+      </div>
+
+      {% if request.school %}
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Total billed</p>
+            <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ total_billed }}</p>
+          </div>
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Collected</p>
+            <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ total_collected }}</p>
+          </div>
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Outstanding</p>
+            <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ outstanding_balance }}</p>
+          </div>
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Collection rate</p>
+            <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ collection_rate }}%</p>
+          </div>
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Escalations</p>
+            <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ active_escalations_count }}</p>
+          </div>
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Payment promises</p>
+            <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ active_promises_count }}</p>
+          </div>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Staff</p>
+            <p class="mt-1 text-xl font-semibold text-zinc-100">{{ staff_count }}</p>
+          </div>
+          <div class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Students</p>
+            <p class="mt-1 text-xl font-semibold text-zinc-100">{{ student_count }}</p>
+          </div>
+          <div class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Streams</p>
+            <p class="mt-1 text-xl font-semibold text-zinc-100">{{ stream_count }}</p>
+          </div>
+          <div class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Admins</p>
+            <p class="mt-1 text-xl font-semibold text-zinc-100">{{ admin_count }}/2</p>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Urgent attention</p>
+          <div class="overflow-x-auto rounded-md border border-zinc-800">
+            <table class="min-w-full border-collapse text-left text-sm">
+              <thead class="bg-black">
+                <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                  <th class="px-4 py-3 font-medium">Parent</th>
+                  <th class="px-4 py-3 font-medium">Student</th>
+                  <th class="px-4 py-3 font-medium">Reason</th>
+                  <th class="px-4 py-3 font-medium">Flagged</th>
+                </tr>
+              </thead>
+              <tbody class="bg-zinc-950">
+                {% for item in urgent_attention %}
+                  <tr class="border-b border-zinc-800 align-top">
+                    <td class="px-4 py-3">
+                      <a href="{% url 'dashboard:chat_console_session' item.session.pk %}?tab=escalated" class="group block">
+                        <p class="font-medium text-zinc-100 group-hover:text-yellow-400">{% if item.parent_name %}{{ item.parent_name }}{% else %}{{ item.parent_phone }}{% endif %}</p>
+                        <p class="mt-0.5 font-mono text-[10px] uppercase text-zinc-500">{{ item.parent_phone }}</p>
+                      </a>
+                    </td>
+                    <td class="px-4 py-3 text-zinc-300">
+                      {% if item.student %}
+                        {{ item.student.full_name }}
+                        <span class="mt-0.5 block font-mono text-[10px] uppercase text-zinc-500">{{ item.student.admission_number }}</span>
+                      {% else %}
+                        <span class="text-zinc-500">—</span>
+                      {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-zinc-400">{{ item.reason }}</td>
+                    <td class="px-4 py-3 font-mono text-xs text-zinc-500">{{ item.flagged_at|date:"M j, Y H:i" }}</td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="4" class="px-4 py-8 text-center text-sm text-zinc-500">No escalated conversations right now.</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Recent M-Pesa transactions</p>
+          <div class="overflow-x-auto rounded-md border border-zinc-800">
+            <table class="min-w-full table-fixed border-collapse text-left text-sm">
+              <thead class="bg-black">
+                <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                  <th class="w-[28%] px-4 py-3 font-medium">Student</th>
+                  <th class="w-[14%] px-4 py-3 font-medium">Admission</th>
+                  <th class="w-[14%] px-4 py-3 font-medium">Amount</th>
+                  <th class="w-[24%] px-4 py-3 font-medium">Receipt</th>
+                  <th class="w-[20%] px-4 py-3 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody class="bg-zinc-950">
+                {% for tx in recent_transactions %}
+                  <tr class="border-b border-zinc-800">
+                    <td class="px-4 py-3 text-zinc-100">
+                      {% if tx.invoice.student %}{{ tx.invoice.student.full_name }}{% else %}—{% endif %}
+                    </td>
+                    <td class="px-4 py-3 font-mono text-xs text-zinc-400">
+                      {% if tx.invoice.student %}{{ tx.invoice.student.admission_number }}{% else %}—{% endif %}
+                    </td>
+                    <td class="px-4 py-3 font-mono text-xs text-yellow-400">{{ tx.amount }}</td>
+                    <td class="px-4 py-3 font-mono text-xs text-zinc-500">{{ tx.mpesa_receipt_number|default:"—" }}</td>
+                    <td class="px-4 py-3">
+                      <span class="font-mono text-[10px] uppercase tracking-wider {% if tx.status == 'SUCCESS' %}text-yellow-400{% elif tx.status == 'STK_PUSH_SENT' or tx.status == 'INITIALIZED' %}text-zinc-300{% else %}text-red-400{% endif %}">
+                        {{ tx.get_status_display }}
+                      </span>
+                    </td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="5" class="px-4 py-8 text-center text-sm text-zinc-500">No M-Pesa transactions yet.</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}
+        <div class="rounded-md border border-zinc-800 bg-black px-4 py-6 text-sm text-zinc-400">
+          No school is linked to this account. Platform superusers manage tenants from Django admin.
+        </div>
+      {% endif %}
+    {% endif %}
+  </div>
+{% endblock %}

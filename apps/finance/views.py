@@ -1,16 +1,24 @@
 from decimal import Decimal
+import json
+import logging
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
 from django.views import View
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 
 from academics.models import ClassStream, Student
 from finance.forms import SchoolFeeChargeForm
 from finance.models import FeeStructure, Payment
 from finance.services import create_and_assign_charge, stream_finance_rows
+from finance.services.reconciliation import ACK, reconcile_stk_callback
 from tenants.decorators import school_admin_required
+
+logger = logging.getLogger(__name__)
 
 
 def _ensure_school(request):
@@ -136,3 +144,34 @@ class SchoolFinanceView(LoginRequiredMixin, View):
             },
             status=status,
         )
+
+
+@csrf_exempt
+@require_POST
+def daraja_callback(request):
+    """
+    Public Safaricom Daraja STK callback.
+
+    Query: ?tenant_id=<school UUID>
+    Always acknowledges with ResultCode 0 so Safaricom does not retry forever.
+    """
+    tenant_id = (request.GET.get('tenant_id') or '').strip() or None
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
+        payload = {}
+
+    if not isinstance(payload, dict):
+        payload = {}
+
+    try:
+        result = reconcile_stk_callback(payload=payload, tenant_id=tenant_id)
+    except Exception:
+        logger.exception(
+            'Daraja callback reconciliation failed tenant_id=%s',
+            tenant_id,
+        )
+        result = ACK
+
+    return JsonResponse(result)

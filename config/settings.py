@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'tenants',
     'academics',
     'finance',
+    'communications',
     'dashboard',
 ]
 
@@ -145,3 +146,28 @@ AUTH_USER_MODEL = 'tenants.User'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Public site origin used in absolute callback URLs (no trailing slash).
+SITE_DOMAIN = env('SITE_DOMAIN', default='http://127.0.0.1:8000')
+
+# Safaricom Daraja sandbox defaults (per-school encrypted keys take precedence).
+DARAJA_CONSUMER_KEY = env('DARAJA_CONSUMER_KEY', default='')
+DARAJA_CONSUMER_SECRET = env('DARAJA_CONSUMER_SECRET', default='')
+DARAJA_PASSKEY = env('DARAJA_PASSKEY', default='')
+DARAJA_SHORTCODE = env('DARAJA_SHORTCODE', default='174379')
+
+# Twilio WhatsApp (per-school twilio_phone_number overrides the from-number)
+TWILIO_ACCOUNT_SID = env('TWILIO_ACCOUNT_SID', default='')
+TWILIO_AUTH_TOKEN = env('TWILIO_AUTH_TOKEN', default='')
+TWILIO_WHATSAPP_NUMBER = env('TWILIO_WHATSAPP_NUMBER', default='')
+TWILIO_DEFAULT_SCHOOL_CODE = env(
+    'TWILIO_DEFAULT_SCHOOL_CODE',
+    default='greenfields-academy',
+)
+
+# Max amount above invoice balance allowed for STK / agent payments (KES).
+FEE_OVERPAYMENT_ALLOWANCE = env('FEE_OVERPAYMENT_ALLOWANCE', default='0')
+
+# Google Gemini (parent WhatsApp agent)
+GEMINI_API_KEY = env('GEMINI_API_KEY', default='')
+GEMINI_MODEL = env('GEMINI_MODEL', default='gemini-2.5-flash')

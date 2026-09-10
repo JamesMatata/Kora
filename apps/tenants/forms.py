@@ -8,8 +8,8 @@ from tenants.models import School
 User = get_user_model()
 
 INPUT_CLASS = (
-    'w-full rounded-md border border-zinc-800 bg-black px-3 py-2 '
-    'text-zinc-100 outline-none focus:border-yellow-400'
+    'w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 '
+    'text-sm text-zinc-100 outline-none focus:border-yellow-400'
 )
 
 E164_OR_BLANK = RegexValidator(
@@ -41,8 +41,10 @@ class ProfileForm(forms.ModelForm):
 class StyledPasswordChangeForm(PasswordChangeForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field in self.fields.values():
+        for name, field in self.fields.items():
             field.widget.attrs.setdefault('class', INPUT_CLASS)
+            field.widget.attrs.setdefault('autocomplete', name)
+            field.help_text = ''
 
 
 class SchoolCreateForm(forms.ModelForm):

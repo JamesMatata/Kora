@@ -22,6 +22,15 @@ class School(models.Model):
     contact_phone = models.CharField(max_length=32, blank=True)
     contact_email = models.EmailField(blank=True)
     paybill_number = models.CharField(max_length=32, blank=True)
+    twilio_phone_number = models.CharField(
+        max_length=16,
+        blank=True,
+        help_text='Optional WhatsApp sender override (E.164). Falls back to TWILIO_WHATSAPP_NUMBER.',
+    )
+    # Encrypted at rest (Fernet). Empty → fall back to project sandbox env keys.
+    mpesa_consumer_key = models.TextField(blank=True)
+    mpesa_consumer_secret = models.TextField(blank=True)
+    mpesa_passkey = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -31,6 +40,26 @@ class School(models.Model):
 
     def __str__(self):
         return self.name
+
+    def set_mpesa_credentials(self, *, consumer_key='', consumer_secret='', passkey=''):
+        from tenants.crypto import encrypt_value
+
+        if consumer_key:
+            self.mpesa_consumer_key = encrypt_value(consumer_key)
+        if consumer_secret:
+            self.mpesa_consumer_secret = encrypt_value(consumer_secret)
+        if passkey:
+            self.mpesa_passkey = encrypt_value(passkey)
+
+    def get_mpesa_credentials(self) -> dict[str, str]:
+        from tenants.crypto import decrypt_value
+
+        return {
+            'consumer_key': decrypt_value(self.mpesa_consumer_key),
+            'consumer_secret': decrypt_value(self.mpesa_consumer_secret),
+            'passkey': decrypt_value(self.mpesa_passkey),
+            'paybill_number': (self.paybill_number or '').strip(),
+        }
 
 
 class User(AbstractUser):

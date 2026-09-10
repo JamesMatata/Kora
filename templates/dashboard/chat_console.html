@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}WhatsApp · Kora{% endblock %}
+
+{% block page_title %}WhatsApp{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">WhatsApp console</span>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-4">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">WhatsApp console</h2>
+        <p class="mt-2 max-w-2xl text-sm text-zinc-400">
+          Monitor escalations, take over threads from the AI agent, and reply to parents directly.
+        </p>
+      </div>
+      <a
+        href="{% url 'dashboard:fee_ledger' %}"
+        class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+      >
+        Fee ledger
+      </a>
+    </div>
+
+    <div class="grid min-h-[70vh] gap-0 overflow-hidden rounded-md border border-zinc-800 lg:grid-cols-[22rem_minmax(0,1fr)]">
+      {# Left pane: active threads #}
+      <aside class="flex flex-col border-b border-zinc-800 bg-black lg:border-b-0 lg:border-r">
+        <div class="flex border-b border-zinc-800">
+          <a
+            href="{% url 'dashboard:chat_console' %}?tab=escalated"
+            class="flex-1 px-3 py-3 text-center font-mono text-[10px] uppercase tracking-[0.18em] {% if active_tab == 'escalated' %}bg-zinc-950 text-yellow-400{% else %}text-zinc-500 hover:text-zinc-300{% endif %}"
+          >Escalated</a>
+          <a
+            href="{% url 'dashboard:chat_console' %}?tab=bot"
+            class="flex-1 border-l border-zinc-800 px-3 py-3 text-center font-mono text-[10px] uppercase tracking-[0.18em] {% if active_tab == 'bot' %}bg-zinc-950 text-yellow-400{% else %}text-zinc-500 hover:text-zinc-300{% endif %}"
+          >Bot active</a>
+          <a
+            href="{% url 'dashboard:chat_console' %}?tab=all"
+            class="flex-1 border-l border-zinc-800 px-3 py-3 text-center font-mono text-[10px] uppercase tracking-[0.18em] {% if active_tab == 'all' %}bg-zinc-950 text-yellow-400{% else %}text-zinc-500 hover:text-zinc-300{% endif %}"
+          >All</a>
+        </div>
+
+        <ul class="flex-1 overflow-y-auto divide-y divide-zinc-800">
+          {% for row in thread_rows %}
+            <li>
+              <a
+                href="{% url 'dashboard:chat_console_session' row.session.pk %}?tab={{ active_tab }}"
+                class="block px-4 py-3 transition hover:bg-zinc-950 {% if session and session.pk == row.session.pk %}bg-zinc-950{% endif %}"
+              >
+                <div class="flex items-start justify-between gap-2">
+                  <p class="truncate text-sm font-semibold text-zinc-100">{{ row.student_name }}</p>
+                  <p class="shrink-0 font-mono text-[10px] text-zinc-600">{{ row.timestamp|date:"M j, H:i" }}</p>
+                </div>
+                <p class="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-500">{{ row.phone }}</p>
+                <p class="mt-1 line-clamp-2 text-xs text-zinc-400">{{ row.excerpt }}</p>
+                <p class="mt-1.5 font-mono text-[10px] uppercase tracking-[0.14em] {% if row.session.status == status_escalated %}text-red-400{% elif row.session.status == status_staff_active %}text-yellow-400{% else %}text-zinc-600{% endif %}">
+                  {{ row.session.status }}
+                </p>
+              </a>
+            </li>
+          {% empty %}
+            <li class="px-4 py-10 text-center text-sm text-zinc-500">
+              {% if active_tab == 'escalated' %}
+                No escalated conversations.
+              {% elif active_tab == 'bot' %}
+                No bot-active conversations.
+              {% else %}
+                No open conversations.
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </aside>
+
+      {# Right pane: active chat #}
+      <section class="flex min-h-[28rem] flex-col bg-zinc-950">
+        {% if session %}
+          <header class="border-b border-zinc-800 bg-black px-4 py-3">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div class="min-w-0">
+                <p class="truncate text-lg font-semibold text-zinc-100">
+                  {% if session.active_student %}
+                    {{ session.active_student.full_name }}
+                  {% else %}
+                    {{ session.parent_contact.parent_name|default:session.parent_contact.phone_number }}
+                  {% endif %}
+                </p>
+                <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
+                  {% if session.active_student %}
+                    <span class="font-mono uppercase tracking-wider text-zinc-500">
+                      Adm {{ session.active_student.admission_number }}
+                    </span>
+                  {% endif %}
+                  <span>
+                    Balance
+                    <span class="font-mono text-yellow-400">
+                      {% if current_balance is not None %}{{ current_balance }}{% else %}—{% endif %}
+                    </span>
+                  </span>
+                  <span class="font-mono text-zinc-500">{{ session.parent_contact.phone_number }}</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="rounded-md border border-zinc-800 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] {% if session.status == status_escalated %}border-red-400/40 text-red-400{% elif session.status == status_staff_active %}border-yellow-400/40 text-yellow-400{% else %}text-zinc-400{% endif %}">
+                  {{ session.status }}
+                </span>
+                {% if session.status == status_escalated %}
+                  <form method="post" action="{% url 'dashboard:chat_claim' session.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="tab" value="{{ active_tab }}">
+                    <button
+                      type="submit"
+                      class="rounded-md border border-yellow-400 bg-yellow-400 px-3 py-1.5 text-xs font-semibold text-black hover:bg-yellow-300"
+                    >
+                      Claim &amp; take over
+                    </button>
+                  </form>
+                {% elif session.status == status_staff_active %}
+                  <form method="post" action="{% url 'dashboard:chat_release' session.pk %}" class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="tab" value="{{ active_tab }}">
+                    <button
+                      type="submit"
+                      class="rounded-md border border-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+                    >
+                      Release to AI
+                    </button>
+                  </form>
+                  <form method="post" action="{% url 'dashboard:chat_resolve' session.pk %}" class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="tab" value="{{ active_tab }}">
+                    <button
+                      type="submit"
+                      class="rounded-md border border-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+                    >
+                      Mark resolved
+                    </button>
+                  </form>
+                {% endif %}
+              </div>
+            </div>
+            {% if session.assigned_staff %}
+              <p class="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-600">
+                Assigned · {{ session.assigned_staff.get_full_name|default:session.assigned_staff.username }}
+              </p>
+            {% endif %}
+          </header>
+
+          <div
+            id="message-feed"
+            class="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
+            hx-get="{% url 'dashboard:chat_messages' session.pk %}"
+            hx-trigger="every 4s"
+            hx-target="#message-feed"
+            hx-swap="innerHTML"
+          >
+            {% include "dashboard/partials/chat_message_feed.html" %}
+          </div>
+
+          <footer class="border-t border-zinc-800 bg-black px-4 py-3">
+            {% if session.status == status_staff_active %}
+              <form
+                class="flex gap-2"
+                hx-post="{% url 'dashboard:chat_send' session.pk %}"
+                hx-target="#message-feed"
+                hx-swap="innerHTML"
+                hx-on::htmx:after-request="if(event.detail.successful) this.reset()"
+              >
+                {% csrf_token %}
+                <input
+                  type="text"
+                  name="body"
+                  required
+                  autocomplete="off"
+                  placeholder="Reply to parent on WhatsApp…"
+                  class="min-w-0 flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+                >
+                <button
+                  type="submit"
+                  class="shrink-0 rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+                >
+                  Send
+                </button>
+              </form>
+            {% else %}
+              <div class="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-500">
+                {% if session.status == status_escalated %}
+                  Claim this thread to reply as staff.
+                {% else %}
+                  AI agent is handling this thread. Escalate or claim after the parent asks for a human.
+                {% endif %}
+              </div>
+            {% endif %}
+          </footer>
+        {% else %}
+          <div class="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+            <p class="text-sm font-semibold text-zinc-300">Select a conversation</p>
+            <p class="max-w-sm text-sm text-zinc-500">
+              Choose a thread from the left to review messages, take over from the bot, or reply on WhatsApp.
+            </p>
+          </div>
+        {% endif %}
+      </section>
+    </div>
+  </div>
+{% endblock %}

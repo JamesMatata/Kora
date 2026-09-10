@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% load dashboard_extras %}
+
+{% block title %}Executive reports · Kora{% endblock %}
+
+{% block page_title %}Reports{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">Executive reports</span>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">Executive reports</h2>
+        <p class="mt-2 max-w-2xl text-sm text-zinc-400">
+          Weekly AI briefings covering collections, WhatsApp volume, escalations, and bursar action items.
+        </p>
+      </div>
+      <a
+        href="{% url 'dashboard:overview' %}"
+        class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+      >
+        Command center
+      </a>
+    </div>
+
+    {% if latest_report %}
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="rounded-md border border-zinc-800 bg-black p-4">
+          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Week</p>
+          <p class="mt-2 text-3xl font-semibold text-yellow-400">W{{ latest_report.week_number }}</p>
+          <p class="mt-1 text-xs text-zinc-500">{{ latest_report.year }}</p>
+        </div>
+        <div class="rounded-md border border-zinc-800 bg-black p-4">
+          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Billed</p>
+          <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ latest_report.total_billed }}</p>
+        </div>
+        <div class="rounded-md border border-zinc-800 bg-black p-4">
+          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Collected</p>
+          <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ latest_report.total_collected }}</p>
+        </div>
+        <div class="rounded-md border border-zinc-800 bg-black p-4">
+          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Efficiency</p>
+          <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ latest_report.collection_efficiency }}%</p>
+        </div>
+      </div>
+
+      <div class="grid gap-3 sm:grid-cols-3">
+        <div class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Conversations</p>
+          <p class="mt-1 text-xl font-semibold text-zinc-100">{{ latest_report.total_conversations }}</p>
+        </div>
+        <div class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Automated resolved</p>
+          <p class="mt-1 text-xl font-semibold text-zinc-100">{{ latest_report.automated_resolved_count }}</p>
+        </div>
+        <div class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Escalations</p>
+          <p class="mt-1 text-xl font-semibold text-zinc-100">{{ latest_report.escalated_count }}</p>
+        </div>
+      </div>
+
+      <div class="rounded-md border border-zinc-800 bg-black p-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Latest briefing</p>
+          <a
+            href="{% url 'dashboard:report_detail' latest_report.pk %}"
+            class="rounded-md border border-yellow-400 bg-yellow-400 px-3 py-1.5 text-xs font-semibold text-black hover:bg-yellow-300"
+          >
+            Open full report
+          </a>
+        </div>
+        <div class="prose-briefing mt-3 max-w-none">
+          {{ latest_report.summary_markdown|simple_markdown }}
+        </div>
+        {% if latest_report.key_action_items %}
+          <div class="mt-5 border-t border-zinc-800 pt-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Key action items</p>
+            <ol class="mt-2 list-decimal space-y-2 pl-5 text-sm text-zinc-300">
+              {% for item in latest_report.key_action_items %}
+                <li>{{ item }}</li>
+              {% endfor %}
+            </ol>
+          </div>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="rounded-md border border-zinc-800 bg-black px-4 py-8 text-center text-sm text-zinc-500">
+        No weekly reports yet. Run
+        <span class="font-mono text-zinc-300">python manage.py generate_weekly_report</span>
+        to create the first briefing.
+      </div>
+    {% endif %}
+
+    <div class="space-y-3">
+      <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Report archive</p>
+      <div class="overflow-x-auto rounded-md border border-zinc-800">
+        <table class="min-w-full border-collapse text-left text-sm">
+          <thead class="bg-black">
+            <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+              <th class="px-4 py-3 font-medium">Week</th>
+              <th class="px-4 py-3 font-medium">Billed</th>
+              <th class="px-4 py-3 font-medium">Collected</th>
+              <th class="px-4 py-3 font-medium">Efficiency</th>
+              <th class="px-4 py-3 font-medium">Escalations</th>
+              <th class="px-4 py-3 font-medium">Created</th>
+            </tr>
+          </thead>
+          <tbody class="bg-zinc-950">
+            {% for report in reports %}
+              <tr class="border-b border-zinc-800">
+                <td class="px-4 py-3">
+                  <a href="{% url 'dashboard:report_detail' report.pk %}" class="font-semibold text-zinc-100 hover:text-yellow-400">
+                    W{{ report.week_number }} · {{ report.year }}
+                  </a>
+                </td>
+                <td class="px-4 py-3 font-mono text-xs text-zinc-300">{{ report.total_billed }}</td>
+                <td class="px-4 py-3 font-mono text-xs text-yellow-400">{{ report.total_collected }}</td>
+                <td class="px-4 py-3 font-mono text-xs text-zinc-300">{{ report.collection_efficiency }}%</td>
+                <td class="px-4 py-3 font-mono text-xs text-zinc-400">{{ report.escalated_count }}</td>
+                <td class="px-4 py-3 font-mono text-xs text-zinc-500">{{ report.created_at|date:"M j, Y H:i" }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" class="px-4 py-8 text-center text-sm text-zinc-500">No archived reports.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+{% endblock %}
