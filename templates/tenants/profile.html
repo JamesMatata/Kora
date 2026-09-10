@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load avatars %}
+
+{% block title %}Profile · Kora{% endblock %}
+
+{% block page_title %}Profile{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">Profile</span>
+{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-xl space-y-8">
+    <div class="flex items-center gap-4">
+      {% user_avatar user size=64 %}
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">{{ user.get_full_name|default:user.email }}</h2>
+        <p class="mt-1 text-sm text-zinc-400">Your account details across all schools.</p>
+      </div>
+    </div>
+
+    <form method="post" class="space-y-4 rounded-md border border-zinc-800 bg-black p-5" hx-boost="false">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="profile">
+      <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Account</p>
+      {% if profile_form.non_field_errors %}
+        <div class="rounded-md border border-red-500 px-3 py-2 text-sm text-red-400">{{ profile_form.non_field_errors }}</div>
+      {% endif %}
+      {% for field in profile_form %}
+        <div>
+          <label for="{{ field.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">{{ field.label }}</label>
+          {{ field }}
+          {% if field.errors %}
+            <p class="mt-1 text-xs text-red-400">{{ field.errors|striptags }}</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+      <button type="submit" class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
+        Save profile
+      </button>
+    </form>
+
+    <form method="post" class="space-y-4 rounded-md border border-zinc-800 bg-black p-5" hx-boost="false">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="password">
+      <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Change password</p>
+      {% if password_form.non_field_errors %}
+        <div class="rounded-md border border-red-500 px-3 py-2 text-sm text-red-400">{{ password_form.non_field_errors }}</div>
+      {% endif %}
+      {% for field in password_form %}
+        <div>
+          <label for="{{ field.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">{{ field.label }}</label>
+          {{ field }}
+          {% if field.errors %}
+            <p class="mt-1 text-xs text-red-400">{{ field.errors|striptags }}</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+      <button type="submit" class="rounded-md border border-zinc-700 px-4 py-2.5 text-sm font-semibold text-zinc-100 hover:border-yellow-400 hover:text-yellow-400">
+        Update password
+      </button>
+    </form>
+
+    {% if user_memberships %}
+      <section class="space-y-3">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Your schools</p>
+        <ul class="divide-y divide-zinc-800 overflow-hidden rounded-md border border-zinc-800 bg-black">
+          {% for membership in user_memberships %}
+            <li class="flex items-center justify-between gap-3 px-4 py-3">
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium text-zinc-100">{{ membership.school.name }}</p>
+                <p class="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-500">{{ membership.role_label }}</p>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+  </div>
+{% endblock %}

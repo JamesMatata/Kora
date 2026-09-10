@@ -1,0 +1,99 @@
+{% extends "public_base.html" %}
+
+{% block title %}Sign up · Kora{% endblock %}
+
+{% block body %}
+  <main class="flex min-h-full items-center justify-center px-4 pb-16 pt-36 sm:pt-40">
+    <div class="w-full max-w-sm">
+      <h1 class="text-3xl font-semibold text-zinc-100">Create account</h1>
+      <p class="mt-2 text-sm text-zinc-400">Start with your details. You can create or join a school next.</p>
+
+      <form method="post" class="mt-6 space-y-4" hx-boost="false">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="rounded-md border border-red-500 px-3 py-2 text-sm text-red-400">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        {{ form.email }}
+        {% if form.email.errors %}<p class="text-xs text-red-400">{{ form.email.errors|striptags }}</p>{% endif %}
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            {{ form.first_name }}
+            {% if form.first_name.errors %}<p class="mt-1 text-xs text-red-400">{{ form.first_name.errors|striptags }}</p>{% endif %}
+          </div>
+          <div>
+            {{ form.last_name }}
+            {% if form.last_name.errors %}<p class="mt-1 text-xs text-red-400">{{ form.last_name.errors|striptags }}</p>{% endif %}
+          </div>
+        </div>
+
+        <div class="relative">
+          {{ form.password1 }}
+          <button
+            type="button"
+            class="password-toggle absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center text-zinc-500 hover:text-yellow-400"
+            data-target="{{ form.password1.id_for_label }}"
+            aria-label="Show password"
+            aria-pressed="false"
+          >
+            <svg class="icon-show h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+            <svg class="icon-hide hidden h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3 3l18 18M10.5 10.7a3 3 0 0 0 4.2 4.2M9.9 5.6A10.5 10.5 0 0 1 12 5c6.5 0 10 7 10 7a18.4 18.4 0 0 1-4.2 4.7M6.1 6.3A18.5 18.5 0 0 0 2 12s3.5 7 10 7c1.1 0 2.1-.2 3.1-.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        {% if form.password1.errors %}<p class="text-xs text-red-400">{{ form.password1.errors|striptags }}</p>{% endif %}
+
+        <div class="relative">
+          {{ form.password2 }}
+          <button
+            type="button"
+            class="password-toggle absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center text-zinc-500 hover:text-yellow-400"
+            data-target="{{ form.password2.id_for_label }}"
+            aria-label="Show password"
+            aria-pressed="false"
+          >
+            <svg class="icon-show h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+            <svg class="icon-hide hidden h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3 3l18 18M10.5 10.7a3 3 0 0 0 4.2 4.2M9.9 5.6A10.5 10.5 0 0 1 12 5c6.5 0 10 7 10 7a18.4 18.4 0 0 1-4.2 4.7M6.1 6.3A18.5 18.5 0 0 0 2 12s3.5 7 10 7c1.1 0 2.1-.2 3.1-.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        {% if form.password2.errors %}<p class="text-xs text-red-400">{{ form.password2.errors|striptags }}</p>{% endif %}
+
+        <button type="submit" class="w-full rounded-md border border-yellow-400 bg-yellow-400 px-3 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
+          Create account
+        </button>
+      </form>
+
+      <p class="mt-6 text-sm text-zinc-500">
+        Already have an account?
+        <a href="{% url 'login' %}" class="text-yellow-400 hover:text-yellow-300">Sign in</a>
+      </p>
+    </div>
+  </main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.querySelectorAll('.password-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var input = document.getElementById(btn.getAttribute('data-target'));
+      if (!input) return;
+      var show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+      btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      btn.querySelector('.icon-show').classList.toggle('hidden', show);
+      btn.querySelector('.icon-hide').classList.toggle('hidden', !show);
+    });
+  });
+</script>
+{% endblock %}

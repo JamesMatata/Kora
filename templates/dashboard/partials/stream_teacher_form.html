@@ -1,0 +1,24 @@
+<div id="stream-teacher-{{ stream.pk }}" class="w-full sm:w-auto sm:min-w-[14rem]">
+  <form
+    hx-post="{% url 'dashboard:assign_teacher' stream.slug %}"
+    hx-target="#stream-teacher-{{ stream.pk }}"
+    hx-swap="outerHTML"
+    class="flex items-center gap-2"
+  >
+    {% csrf_token %}
+    <label for="{{ form.class_teacher.id_for_label }}" class="sr-only">Teacher</label>
+    {{ form.class_teacher }}
+    <button
+      type="submit"
+      class="shrink-0 rounded-md border border-zinc-700 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+    >
+      Save
+    </button>
+    {% if saved %}
+      <span class="font-mono text-[10px] uppercase tracking-wider text-yellow-400">Saved</span>
+    {% endif %}
+  </form>
+  {% if form.class_teacher.errors %}
+    <p class="mt-1 text-xs text-red-400">{{ form.class_teacher.errors|striptags }}</p>
+  {% endif %}
+</div>

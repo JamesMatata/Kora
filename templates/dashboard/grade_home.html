@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} · Kora{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">{{ grade.name }}</span>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">{{ grade.name }}</h2>
+        <p class="mt-2 text-sm text-zinc-400">
+          Teacher:
+          {% if grade.class_teacher %}
+            <span class="text-yellow-400">{{ grade.class_teacher.get_full_name|default:grade.class_teacher.email }}</span>
+          {% else %}
+            <span class="text-zinc-600">Unassigned</span>
+          {% endif %}
+        </p>
+      </div>
+    </div>
+
+    <div class="rounded-md border border-zinc-800 bg-black px-4 py-6 text-sm text-zinc-400">
+      <p>This class has no streams yet.</p>
+      <p class="mt-2">
+        You are assigned as the class teacher. When a stream is added, you become its teacher by default and can manage the roster from there.
+      </p>
+    </div>
+
+    {% if can_add_stream and stream_create_form %}
+      <form method="post" action="{% url 'dashboard:stream_create' grade.slug %}" class="max-w-md space-y-3 rounded-md border border-zinc-800 bg-black p-4" hx-boost="false">
+        {% csrf_token %}
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Add first stream</p>
+        <div>
+          <label for="{{ stream_create_form.name.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Stream name</label>
+          {{ stream_create_form.name }}
+        </div>
+        <button type="submit" class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300">
+          Add stream
+        </button>
+      </form>
+    {% endif %}
+  </div>
+{% endblock %}

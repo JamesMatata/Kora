@@ -1,0 +1,453 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-black">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Kora{% endblock %}</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            kora: {
+              black: '#000000',
+              graphite: '#121212',
+              panel: '#18181b',
+              ink: '#f4f4f5',
+              accent: '#facc15',
+            },
+          },
+          fontFamily: {
+            sans: ['"Space Grotesk"', 'ui-sans-serif', 'sans-serif'],
+            mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <link rel="stylesheet" href="{% static 'css/kora.css' %}">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <script>
+    (function () {
+      try {
+        if (
+          localStorage.getItem('kora.sidebar.collapsed') === '1' &&
+          window.matchMedia('(min-width: 1024px)').matches
+        ) {
+          document.documentElement.classList.add('sidebar-pref-collapsed');
+        }
+      } catch (e) {}
+    })();
+  </script>
+
+  <style>
+    * {
+      box-shadow: none !important;
+    }
+
+    html, body {
+      background: #000000;
+      color: #f4f4f5;
+    }
+
+    ::selection {
+      background: #facc15;
+      color: #000000;
+    }
+
+    /* Thin black scrollbars platform-wide (WebKit + Firefox) */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: #27272a transparent;
+    }
+    *::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    *::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    *::-webkit-scrollbar-thumb {
+      background: #18181b;
+      border-radius: 999px;
+      border: 1px solid #27272a;
+    }
+    *::-webkit-scrollbar-thumb:hover {
+      background: #27272a;
+    }
+
+    /* Freeze page behind drawers / modals */
+    html.overlay-open,
+    html.overlay-open body {
+      overflow: hidden !important;
+      overscroll-behavior: none;
+    }
+    html.overlay-open main {
+      overflow: hidden !important;
+      overscroll-behavior: none;
+      padding-right: var(--kora-scrollbar-gap, 0px);
+    }
+
+    #charge-panel .scope-option input,
+    #charge-panel .class-option input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    #charge-panel .scope-option:has(input:checked) {
+      border-color: #facc15;
+      background: #facc15;
+      color: #000000;
+    }
+    #charge-panel .class-option .class-check {
+      color: transparent;
+    }
+    #charge-panel .class-option:has(input:checked) .class-check {
+      border-color: #facc15;
+      background: #facc15;
+      color: #000000;
+    }
+    #charge-panel .class-option:has(input:checked) .class-label {
+      color: #facc15;
+    }
+
+    :focus-visible {
+      outline: 2px solid #facc15;
+      outline-offset: 2px;
+    }
+
+    #app-sidebar {
+      width: 18rem;
+      overflow: hidden;
+      background-color: #09090b;
+      border-right: 1px solid #27272a;
+    }
+
+    .sidebar-collapsed {
+      width: 0 !important;
+      min-width: 0 !important;
+      overflow: hidden;
+      border-right-width: 0 !important;
+    }
+
+    @media (min-width: 1024px) {
+      /*
+        Outer shell animates width + clips.
+        Inner panel stays a constant 18rem so content never reflows at the
+        clip edge (that reflow was painting a bright strip on the right).
+      */
+      #app-sidebar {
+        /* Opening speed */
+        transition: width 0.3s ease-out, transform 0.3s ease-out;
+        will-change: width;
+      }
+
+      #app-sidebar .sidebar-inner {
+        width: 18rem;
+        min-width: 18rem;
+        background-color: #09090b;
+      }
+
+      #app-sidebar.sidebar-collapsed {
+        width: 3.25rem !important;
+        min-width: 3.25rem !important;
+        overflow: hidden !important;
+        border-right: 1px solid #27272a !important;
+        /* Closing a bit faster than open */
+        transition: width 0.18s ease-in, transform 0.18s ease-in;
+      }
+
+      /* Restore collapsed state before JS runs (reload / navigation) */
+      html.sidebar-pref-collapsed #app-sidebar {
+        width: 3.25rem;
+      }
+
+      html.sidebar-pref-collapsed #app-sidebar .nav-link.is-active {
+        background-color: transparent !important;
+        color: #facc15 !important;
+      }
+
+      html.sidebar-pref-collapsed #app-sidebar .nav-label,
+      html.sidebar-pref-collapsed #app-sidebar .role-switcher {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      html.sidebar-pref-collapsed #app-sidebar .role-switcher {
+        display: none;
+      }
+
+      html.sidebar-pref-collapsed .sidebar-rail {
+        width: 3.25rem;
+      }
+
+      /*
+        Bright yellow active rows look like a white board when clipped mid-animation.
+        While collapsed, keep icons only — no yellow fill.
+      */
+      #app-sidebar.sidebar-collapsed .nav-link.is-active {
+        background-color: transparent !important;
+        color: #facc15 !important;
+      }
+
+      .nav-label {
+        opacity: 1;
+        transition: opacity 0.1s ease;
+      }
+
+      #app-sidebar.sidebar-collapsed .nav-label {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      #app-sidebar.sidebar-collapsed .role-switcher {
+        display: none;
+      }
+
+      .avatar-flyout {
+        display: none;
+      }
+
+      #app-sidebar.sidebar-collapsed .profile-avatar-menu:hover .avatar-flyout,
+      #app-sidebar.sidebar-collapsed .profile-avatar-menu:focus-within .avatar-flyout,
+      #app-sidebar.sidebar-collapsed .profile-avatar-menu.is-open .avatar-flyout {
+        display: block;
+        position: fixed;
+        left: 3.25rem;
+        bottom: 3rem;
+        margin-left: 0.25rem;
+        z-index: 60;
+      }
+
+      .sidebar-rail {
+        width: 18rem;
+        background-color: #09090b;
+        /* Opening speed */
+        transition: width 0.3s ease-out;
+      }
+
+      .sidebar-rail.sidebar-collapsed {
+        width: 3.25rem;
+        /* Closing a bit faster */
+        transition: width 0.18s ease-in;
+      }
+    }
+  </style>
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="h-full font-sans antialiased bg-kora-black text-kora-ink" hx-boost="true">
+  {% include 'includes/navbar.html' %}
+
+  <div class="flex min-h-[calc(100vh-3.5rem)] bg-black">
+    <div id="sidebar-rail" class="sidebar-rail hidden shrink-0 bg-zinc-950 lg:block" aria-hidden="true"></div>
+    {% include 'includes/sidebar.html' %}
+
+    <div class="flex min-h-[calc(100vh-3.5rem)] min-w-0 flex-1 flex-col bg-kora-black">
+      <main class="flex-1 overflow-y-auto">
+        <div class="mx-auto w-full max-w-7xl px-4 py-6 lg:px-8">
+          <nav class="mb-5 flex flex-wrap items-center gap-2 font-mono text-xs uppercase tracking-wider text-zinc-500" aria-label="Breadcrumb">
+            {% block breadcrumbs %}
+              <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+            {% endblock %}
+          </nav>
+
+          {% include 'includes/messages.html' %}
+
+          {% block content %}{% endblock %}
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var depth = 0;
+      function gap() {
+        var main = document.querySelector('main');
+        if (main) {
+          return Math.max(0, main.offsetWidth - main.clientWidth);
+        }
+        return Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+      }
+      window.KoraOverlay = {
+        lock: function () {
+          depth += 1;
+          if (depth === 1) {
+            document.documentElement.style.setProperty('--kora-scrollbar-gap', gap() + 'px');
+            document.documentElement.classList.add('overlay-open');
+          }
+        },
+        unlock: function () {
+          depth = Math.max(0, depth - 1);
+          if (depth === 0) {
+            document.documentElement.classList.remove('overlay-open');
+            document.documentElement.style.removeProperty('--kora-scrollbar-gap');
+          }
+        },
+        reset: function () {
+          depth = 0;
+          document.documentElement.classList.remove('overlay-open');
+          document.documentElement.style.removeProperty('--kora-scrollbar-gap');
+        },
+      };
+    })();
+  </script>
+
+  <div
+    id="sidebar-backdrop"
+    class="fixed inset-0 top-14 z-30 hidden bg-black/70 lg:hidden"
+    aria-hidden="true"
+  ></div>
+
+  <script>
+    (function () {
+      const STORAGE_KEY = 'kora.sidebar.collapsed';
+      const sidebar = document.getElementById('app-sidebar');
+      const rail = document.getElementById('sidebar-rail');
+      const toggle = document.getElementById('sidebar-toggle');
+      const backdrop = document.getElementById('sidebar-backdrop');
+      if (!sidebar || !toggle) return;
+
+      const mq = window.matchMedia('(min-width: 1024px)');
+
+      function readCollapsedPref() {
+        try {
+          return localStorage.getItem(STORAGE_KEY) === '1';
+        } catch (e) {
+          return false;
+        }
+      }
+
+      function writeCollapsedPref(collapsed) {
+        try {
+          localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0');
+        } catch (e) {}
+        document.documentElement.classList.toggle('sidebar-pref-collapsed', collapsed);
+      }
+
+      function setExpanded(expanded, persist) {
+        toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        if (mq.matches) {
+          const collapsed = !expanded;
+          sidebar.classList.toggle('sidebar-collapsed', collapsed);
+          if (rail) rail.classList.toggle('sidebar-collapsed', collapsed);
+          backdrop.classList.add('hidden');
+          sidebar.classList.remove('-translate-x-full');
+          sidebar.classList.add('translate-x-0');
+          if (persist !== false) writeCollapsedPref(collapsed);
+          if (window.KoraOverlay) window.KoraOverlay.reset();
+        } else {
+          sidebar.classList.remove('sidebar-collapsed');
+          if (rail) rail.classList.remove('sidebar-collapsed');
+          if (expanded) {
+            sidebar.classList.remove('-translate-x-full');
+            sidebar.classList.add('translate-x-0');
+            backdrop.classList.remove('hidden');
+            if (window.KoraOverlay) window.KoraOverlay.lock();
+          } else {
+            sidebar.classList.add('-translate-x-full');
+            sidebar.classList.remove('translate-x-0');
+            backdrop.classList.add('hidden');
+            if (window.KoraOverlay) window.KoraOverlay.unlock();
+          }
+        }
+      }
+
+      // Desktop: restore last state. Mobile: start closed.
+      let expanded = mq.matches ? !readCollapsedPref() : false;
+      setExpanded(expanded, false);
+
+      toggle.addEventListener('click', function () {
+        expanded = !expanded;
+        setExpanded(expanded, true);
+      });
+
+      backdrop.addEventListener('click', function () {
+        expanded = false;
+        setExpanded(expanded, mq.matches);
+      });
+
+      mq.addEventListener('change', function () {
+        if (mq.matches) {
+          expanded = !readCollapsedPref();
+        } else {
+          expanded = false;
+        }
+        setExpanded(expanded, false);
+      });
+    })();
+  </script>
+
+  <script>
+    (function () {
+      const root = document.getElementById('tenant-switcher');
+      const toggle = document.getElementById('tenant-switcher-toggle');
+      const menu = document.getElementById('tenant-switcher-menu');
+      if (!root || !toggle || !menu) return;
+
+      function closeMenu() {
+        menu.classList.add('hidden');
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+      function openMenu() {
+        menu.classList.remove('hidden');
+        toggle.setAttribute('aria-expanded', 'true');
+      }
+
+      toggle.addEventListener('click', function (event) {
+        event.stopPropagation();
+        if (menu.classList.contains('hidden')) openMenu();
+        else closeMenu();
+      });
+      document.addEventListener('click', function (event) {
+        if (!root.contains(event.target)) closeMenu();
+      });
+    })();
+  </script>
+
+  <script>
+    document.body.addEventListener('htmx:configRequest', function (event) {
+      var token = document.querySelector('meta[name="csrf-token"]');
+      if (token) {
+        event.detail.headers['X-CSRFToken'] = token.getAttribute('content');
+      }
+    });
+  </script>
+  <script>
+    (function () {
+      const menu = document.querySelector('.profile-avatar-menu');
+      const trigger = document.querySelector('.profile-avatar-trigger');
+      if (!menu || !trigger) return;
+
+      trigger.addEventListener('click', function (event) {
+        event.stopPropagation();
+        const sidebar = document.getElementById('app-sidebar');
+        if (!sidebar || !sidebar.classList.contains('sidebar-collapsed')) return;
+        menu.classList.toggle('is-open');
+        trigger.setAttribute(
+          'aria-expanded',
+          menu.classList.contains('is-open') ? 'true' : 'false'
+        );
+      });
+
+      document.addEventListener('click', function (event) {
+        if (!menu.contains(event.target)) {
+          menu.classList.remove('is-open');
+          trigger.setAttribute('aria-expanded', 'false');
+        }
+      });
+    })();
+  </script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

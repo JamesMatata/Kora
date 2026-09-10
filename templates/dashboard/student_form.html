@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} · Kora{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  <a href="{% url roster_back_url roster_slug %}" class="hover:text-yellow-400">
+    {% if placement_kind == 'grade' %}{{ grade.name }}{% else %}{{ stream }}{% endif %}
+  </a>
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">{% if is_create %}Add student{% else %}Edit{% endif %}</span>
+{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-xl space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">
+          {% if is_create %}Add student{% else %}Edit student{% endif %}
+        </h2>
+        <p class="mt-2 text-sm text-zinc-400">
+          {% if placement_kind == 'grade' %}{{ grade.name }}{% else %}{{ stream }}{% endif %}
+        </p>
+      </div>
+      <a
+        href="{% url roster_back_url roster_slug %}"
+        class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+      >
+        Back to roster
+      </a>
+    </div>
+
+    <form method="post" class="space-y-4 rounded-md border border-zinc-800 bg-black p-5" hx-boost="false">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="rounded-md border border-red-500 px-3 py-2 text-sm text-red-400">{{ form.non_field_errors }}</div>
+      {% endif %}
+      {% for field in form %}
+        <div>
+          {% if field.name == 'is_active' %}
+            <label class="flex items-center gap-3 text-sm text-zinc-200">
+              {{ field }}
+              <span>{{ field.label }}</span>
+            </label>
+          {% else %}
+            <label for="{{ field.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">{{ field.label }}</label>
+            {{ field }}
+          {% endif %}
+          {% if field.help_text %}
+            <p class="mt-1 text-xs text-zinc-500">{{ field.help_text }}</p>
+          {% endif %}
+          {% if field.errors %}
+            <p class="mt-1 text-xs text-red-400">{{ field.errors|striptags }}</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+      <button type="submit" class="w-full rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
+        {% if is_create %}Create student{% else %}Save changes{% endif %}
+      </button>
+    </form>
+  </div>
+{% endblock %}

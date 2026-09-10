@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} · Kora{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  {% if is_admin %}
+    <a href="{% url 'finance:overview' %}" class="hover:text-yellow-400">Finance</a>
+    <span class="text-zinc-700">/</span>
+  {% endif %}
+  {% if placement_kind == 'grade' %}
+    <a href="{% url 'dashboard:grade_home' grade.slug %}" class="hover:text-yellow-400">{{ grade.name }}</a>
+  {% else %}
+    <a href="{% url 'dashboard:stream_roster' stream.slug %}" class="hover:text-yellow-400">{{ stream }}</a>
+  {% endif %}
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">Finance</span>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">
+          {% if placement_kind == 'grade' %}{{ grade.name }}{% else %}{{ stream }}{% endif %} finance
+        </h2>
+        <p class="mt-2 text-sm text-zinc-400">Balances for students in this class.</p>
+      </div>
+      <div class="flex shrink-0 flex-wrap gap-2">
+        <button
+          type="button"
+          id="open-charge-modal"
+          class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+        >
+          New charge
+        </button>
+        <a
+          href="{% url roster_back_url roster_slug %}"
+          class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+        >
+          Roster
+        </a>
+      </div>
+    </div>
+
+    <div class="grid gap-3 sm:grid-cols-3">
+      <div class="rounded-md border border-zinc-800 bg-black p-4">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Due</p>
+        <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ total_due }}</p>
+      </div>
+      <div class="rounded-md border border-zinc-800 bg-black p-4">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Paid</p>
+        <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ total_paid }}</p>
+      </div>
+      <div class="rounded-md border border-zinc-800 bg-black p-4">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Balance</p>
+        <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ total_balance }}</p>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto rounded-md border border-zinc-800">
+      <table class="w-full table-fixed border-collapse text-left text-sm">
+        <thead class="bg-black">
+          <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+            <th class="w-[22%] px-4 py-3 font-medium">Student</th>
+            <th class="w-[9%] px-4 py-3 font-medium">Due</th>
+            <th class="w-[9%] px-4 py-3 font-medium">Paid</th>
+            <th class="w-[9%] px-4 py-3 font-medium">Balance</th>
+            <th class="w-[51%] px-4 py-3 font-medium">Payment</th>
+          </tr>
+        </thead>
+        <tbody class="bg-zinc-950">
+          {% for row in rows %}
+            <tr class="border-b border-zinc-800 align-top">
+              <td class="px-4 py-3">
+                <p class="truncate font-medium text-zinc-100" title="{{ row.student.full_name }}">{{ row.student.full_name }}</p>
+                <p class="mt-0.5 truncate font-mono text-[10px] uppercase text-zinc-500">{{ row.student.admission_number }}</p>
+              </td>
+              <td class="px-4 py-3 font-mono text-xs whitespace-nowrap text-zinc-300">{{ row.due }}</td>
+              <td class="px-4 py-3 font-mono text-xs whitespace-nowrap text-zinc-300">{{ row.paid }}</td>
+              <td class="px-4 py-3 font-mono text-xs whitespace-nowrap text-yellow-400">{{ row.balance }}</td>
+              <td class="px-4 py-3">
+                <form method="post" class="flex w-full items-start gap-2" hx-boost="false">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="payment">
+                  <input type="hidden" name="admission_number" value="{{ row.student.admission_number }}">
+                  <div class="w-28 shrink-0">
+                    <input
+                      id="pay-amount-{{ row.student.admission_number }}"
+                      type="number"
+                      name="amount"
+                      step="0.01"
+                      min="0.01"
+                      required
+                      placeholder="0.00"
+                      class="w-full rounded-md border border-zinc-800 bg-black px-2 py-1.5 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+                    >
+                    <label for="pay-amount-{{ row.student.admission_number }}" class="mt-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Amount</label>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <input
+                      id="pay-note-{{ row.student.admission_number }}"
+                      type="text"
+                      name="note"
+                      placeholder="Optional"
+                      class="w-full rounded-md border border-zinc-800 bg-black px-2 py-1.5 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+                    >
+                    <label for="pay-note-{{ row.student.admission_number }}" class="mt-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Note</label>
+                  </div>
+                  <button type="submit" class="shrink-0 rounded-md border border-yellow-400 bg-yellow-400 px-3 py-1.5 text-xs font-semibold text-black hover:bg-yellow-300">
+                    Save
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5" class="px-4 py-8 text-center text-sm text-zinc-500">No students in this stream.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div
+    id="charge-backdrop"
+    class="{% if not show_charge_modal %}hidden{% endif %} fixed inset-0 z-50 bg-black/80"
+    aria-hidden="true"
+  ></div>
+  <aside
+    id="charge-panel"
+    class="{% if not show_charge_modal %}translate-x-full{% endif %} fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-zinc-800 bg-zinc-950 transition-transform duration-200"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="charge-title"
+  >
+    <div class="flex h-14 shrink-0 items-center justify-between border-b border-zinc-800 px-4">
+      <h3 id="charge-title" class="text-sm font-semibold text-zinc-100">New charge</h3>
+      <button type="button" id="close-charge-modal" class="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-900 hover:text-yellow-400" aria-label="Close">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <form id="charge-form" method="post" class="flex min-h-0 flex-1 flex-col" hx-boost="false">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create_charge">
+      {{ charge_form.confirmed }}
+      <div class="flex-1 space-y-5 overflow-y-auto px-4 py-4">
+        {% if charge_form.non_field_errors %}
+          <div class="rounded-md border border-red-500 px-3 py-2 text-sm text-red-400">{{ charge_form.non_field_errors }}</div>
+        {% endif %}
+        <div>
+          <label for="{{ charge_form.name.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">{{ charge_form.name.label }}</label>
+          {{ charge_form.name }}
+          {% if charge_form.name.errors %}<p class="mt-1 text-xs text-red-400">{{ charge_form.name.errors|striptags }}</p>{% endif %}
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="{{ charge_form.amount.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">{{ charge_form.amount.label }}</label>
+            {{ charge_form.amount }}
+            {% if charge_form.amount.errors %}<p class="mt-1 text-xs text-red-400">{{ charge_form.amount.errors|striptags }}</p>{% endif %}
+          </div>
+          <div>
+            <label for="{{ charge_form.due_date.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">{{ charge_form.due_date.label }}</label>
+            {{ charge_form.due_date }}
+            {% if charge_form.due_date.errors %}<p class="mt-1 text-xs text-red-400">{{ charge_form.due_date.errors|striptags }}</p>{% endif %}
+          </div>
+        </div>
+        <div>
+          <label for="{{ charge_form.description.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">{{ charge_form.description.label }}</label>
+          {{ charge_form.description }}
+          {% if charge_form.description.errors %}<p class="mt-1 text-xs text-red-400">{{ charge_form.description.errors|striptags }}</p>{% endif %}
+        </div>
+        <p class="text-xs text-zinc-500">
+          This will be assigned to <span class="font-mono text-zinc-200">{{ chargeable_student_count }}</span> active student{{ chargeable_student_count|pluralize }} in {% if placement_kind == 'grade' %}{{ grade.name }}{% else %}{{ stream }}{% endif %}.
+        </p>
+      </div>
+      <div class="shrink-0 border-t border-zinc-800 px-4 py-4">
+        <button type="submit" id="charge-review-btn" class="w-full rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
+          Review &amp; continue
+        </button>
+      </div>
+    </form>
+  </aside>
+
+  <div id="charge-confirm-backdrop" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4" aria-hidden="true">
+    <div class="w-full max-w-md rounded-md border border-zinc-800 bg-zinc-950 p-5" role="dialog" aria-modal="true" aria-labelledby="charge-confirm-title">
+      <h3 id="charge-confirm-title" class="text-sm font-semibold text-zinc-100">Confirm new charge</h3>
+      <p class="mt-2 text-sm text-zinc-400">Please confirm before this is assigned to students.</p>
+      <dl class="mt-4 space-y-2 text-sm">
+        <div class="flex justify-between gap-4"><dt class="text-zinc-500">For</dt><dd id="confirm-name" class="text-right text-zinc-100"></dd></div>
+        <div class="flex justify-between gap-4"><dt class="text-zinc-500">Amount</dt><dd id="confirm-amount" class="text-right font-mono text-yellow-400"></dd></div>
+        <div class="flex justify-between gap-4"><dt class="text-zinc-500">Due</dt><dd id="confirm-due" class="text-right text-zinc-100"></dd></div>
+        <div class="flex justify-between gap-4"><dt class="text-zinc-500">Assign to</dt><dd class="text-right text-zinc-100">{{ chargeable_student_count }} student{{ chargeable_student_count|pluralize }} · {% if placement_kind == 'grade' %}{{ grade.name }}{% else %}{{ stream }}{% endif %}</dd></div>
+      </dl>
+      <div class="mt-5 flex gap-2">
+        <button type="button" id="charge-confirm-back" class="flex-1 rounded-md border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400">Back</button>
+        <button type="button" id="charge-confirm-submit" class="flex-1 rounded-md border border-yellow-400 bg-yellow-400 px-3 py-2 text-sm font-semibold text-black hover:bg-yellow-300">Confirm &amp; create</button>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const backdrop = document.getElementById('charge-backdrop');
+  const panel = document.getElementById('charge-panel');
+  const openBtn = document.getElementById('open-charge-modal');
+  const closeBtn = document.getElementById('close-charge-modal');
+  const form = document.getElementById('charge-form');
+  const confirmed = form && form.querySelector('[name="confirmed"]');
+  const confirmBackdrop = document.getElementById('charge-confirm-backdrop');
+  const studentCount = {{ chargeable_student_count|default:0 }};
+
+  function openPanel() {
+    backdrop.classList.remove('hidden');
+    panel.classList.remove('translate-x-full');
+    if (window.KoraOverlay) window.KoraOverlay.lock();
+  }
+  function closePanel() {
+    backdrop.classList.add('hidden');
+    panel.classList.add('translate-x-full');
+    confirmBackdrop.classList.add('hidden');
+    if (confirmed) confirmed.value = '';
+    if (window.KoraOverlay) window.KoraOverlay.unlock();
+  }
+  function openConfirm() {
+    const name = form.querySelector('[name="name"]').value.trim();
+    const amount = form.querySelector('[name="amount"]').value;
+    const due = form.querySelector('[name="due_date"]').value;
+    if (!name || !amount) {
+      form.reportValidity();
+      return;
+    }
+    document.getElementById('confirm-name').textContent = name;
+    document.getElementById('confirm-amount').textContent = amount;
+    document.getElementById('confirm-due').textContent = due || 'Not set';
+    confirmBackdrop.classList.remove('hidden');
+  }
+
+  openBtn && openBtn.addEventListener('click', openPanel);
+  closeBtn && closeBtn.addEventListener('click', closePanel);
+  backdrop && backdrop.addEventListener('click', closePanel);
+  document.getElementById('charge-confirm-back')?.addEventListener('click', () => {
+    confirmBackdrop.classList.add('hidden');
+    if (confirmed) confirmed.value = '';
+  });
+  document.getElementById('charge-confirm-submit')?.addEventListener('click', () => {
+    if (confirmed) confirmed.value = '1';
+    form.submit();
+  });
+  form && form.addEventListener('submit', (e) => {
+    if (confirmed && confirmed.value === '1') return;
+    e.preventDefault();
+    openConfirm();
+  });
+  {% if show_charge_modal %}
+  openPanel();
+  {% endif %}
+})();
+</script>
+{% endblock %}

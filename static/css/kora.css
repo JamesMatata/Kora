@@ -1,0 +1,4 @@
+/* Kora design system — flat / brutalist. No elevation. */
+* {
+  box-shadow: none !important;
+}

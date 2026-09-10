@@ -1,0 +1,27 @@
+{% if messages %}
+  <div class="mb-5 space-y-3" role="status" aria-live="polite">
+    {% for message in messages %}
+      {% if 'error' in message.tags or 'danger' in message.tags %}
+        <div class="rounded-md border border-red-500 bg-kora-graphite px-4 py-3 text-sm text-red-400">
+          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-red-500">Error</p>
+          <p class="mt-1 text-kora-ink">{{ message }}</p>
+        </div>
+      {% elif 'success' in message.tags %}
+        <div class="rounded-md border border-yellow-400 bg-kora-graphite px-4 py-3 text-sm text-yellow-400">
+          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-yellow-400">Success</p>
+          <p class="mt-1 text-kora-ink">{{ message }}</p>
+        </div>
+      {% elif 'warning' in message.tags %}
+        <div class="rounded-md border border-yellow-400 bg-kora-graphite px-4 py-3 text-sm text-yellow-400">
+          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-yellow-400">Warning</p>
+          <p class="mt-1 text-kora-ink">{{ message }}</p>
+        </div>
+      {% else %}
+        <div class="rounded-md border border-zinc-800 bg-kora-graphite px-4 py-3 text-sm text-zinc-300">
+          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Notice</p>
+          <p class="mt-1 text-kora-ink">{{ message }}</p>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endif %}

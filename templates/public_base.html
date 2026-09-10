@@ -1,0 +1,57 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full scroll-smooth bg-black">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Kora · School operations{% endblock %}</title>
+  {% block meta %}
+  <meta name="description" content="Kora helps schools run roster, staff, and fees in one place — built for day-to-day school operations.">
+  {% endblock %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            kora: { black: '#000000', graphite: '#121212', panel: '#18181b', ink: '#f4f4f5', accent: '#facc15' },
+          },
+          fontFamily: {
+            sans: ['"Space Grotesk"', 'ui-sans-serif', 'sans-serif'],
+            mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    * { box-shadow: none !important; }
+    ::selection { background: #facc15; color: #000000; }
+    {% block extra_css %}{% endblock %}
+  </style>
+</head>
+<body class="min-h-full bg-kora-black font-sans text-kora-ink antialiased">
+  <header class="fixed inset-x-0 top-0 z-40 border-b border-zinc-800/80 bg-black/80 backdrop-blur-sm">
+    <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 lg:px-8">
+      <a href="{% url 'landing' %}" class="flex shrink-0 items-center no-underline" aria-label="Kora home">
+        <img
+          src="{% static 'img/kora-logo.png' %}"
+          alt="Kora"
+          class="h-5 w-auto sm:h-6"
+        >
+      </a>
+      <div class="flex items-center gap-2 sm:gap-3">
+        <a href="{% url 'login' %}" class="rounded-md px-3 py-1.5 text-sm font-medium text-zinc-300 hover:text-yellow-400">Sign in</a>
+        <a href="{% url 'signup' %}" class="rounded-md border border-yellow-400 bg-yellow-400 px-3 py-1.5 text-sm font-semibold text-black hover:bg-yellow-300">Get started</a>
+      </div>
+    </div>
+  </header>
+
+  {% block body %}{% endblock %}
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

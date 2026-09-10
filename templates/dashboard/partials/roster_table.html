@@ -1,0 +1,50 @@
+<div id="roster-table" class="overflow-x-auto rounded-md border border-zinc-800">
+  <table class="min-w-full border-collapse text-left text-sm">
+    <thead class="bg-black">
+      <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+        <th class="px-4 py-3 font-medium">Admission No</th>
+        <th class="px-4 py-3 font-medium">Student Name</th>
+        <th class="px-4 py-3 font-medium">Parent Phone</th>
+        <th class="px-4 py-3 font-medium">Status</th>
+        <th class="px-4 py-3 font-medium">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="bg-zinc-950">
+      {% for student in students %}
+        <tr class="border-b border-zinc-800">
+          <td class="px-4 py-3 font-mono text-xs text-yellow-400">{{ student.admission_number }}</td>
+          <td class="px-4 py-3 font-medium text-zinc-100">{{ student.full_name }}</td>
+          <td class="px-4 py-3 font-mono text-xs text-zinc-400">{{ student.parent_phone }}</td>
+          <td class="px-4 py-3">
+            {% if student.is_active %}
+              <span class="rounded-md border border-zinc-800 px-2 py-0.5 font-mono text-[10px] uppercase text-zinc-400">Active</span>
+            {% else %}
+              <span class="rounded-md border border-red-500 px-2 py-0.5 font-mono text-[10px] uppercase text-red-400">Inactive</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3">
+            <a
+              href="{% url 'dashboard:student_edit' stream.slug student.admission_number %}"
+              class="rounded-md border border-zinc-800 px-2 py-1 text-xs text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+            >
+              Edit
+            </a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5" class="px-4 py-8 text-center text-sm text-zinc-500">
+            {% if query %}
+              No students match “{{ query }}”.
+            {% else %}
+              No students in this stream yet.
+              <a href="{% url 'dashboard:student_create' stream.slug %}" class="text-yellow-400 hover:text-yellow-300">Add one</a>
+              or
+              <a href="{% url 'dashboard:student_import' stream.slug %}" class="text-yellow-400 hover:text-yellow-300">import a spreadsheet</a>.
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

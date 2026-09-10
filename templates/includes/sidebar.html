@@ -1,0 +1,204 @@
+<aside
+  id="app-sidebar"
+  class="fixed left-0 top-14 z-40 h-[calc(100vh-3.5rem)] -translate-x-full bg-zinc-950 lg:translate-x-0"
+  aria-label="Primary"
+>
+  {% load avatars %}
+  {# Fixed-width inner panel: outer shell clips it while width animates (no edge flash). #}
+  <div class="sidebar-inner relative flex h-full w-72 flex-col bg-zinc-950">
+    <nav class="flex-1 overflow-y-auto overflow-x-hidden py-2 pb-44">
+      <ul>
+        <li>
+          <a
+            href="{% url 'dashboard:overview' %}"
+            title="Overview"
+            class="nav-link flex w-full items-center overflow-hidden px-4 py-2.5 text-sm {% if request.resolver_match.namespace == 'dashboard' and request.resolver_match.url_name == 'overview' %}is-active bg-yellow-400 text-black{% else %}text-zinc-300 hover:bg-black hover:text-yellow-400{% endif %}"
+          >
+            <span class="nav-icon-slot inline-flex h-5 w-5 shrink-0 items-center justify-center">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span class="nav-label ml-3 whitespace-nowrap">Overview</span>
+          </a>
+        </li>
+
+        {% if is_admin %}
+        <li>
+          <a
+            href="{% url 'dashboard:teachers' %}"
+            title="Teachers"
+            class="nav-link flex w-full items-center overflow-hidden px-4 py-2.5 text-sm {% if request.resolver_match.url_name == 'teachers' %}is-active bg-yellow-400 text-black{% else %}text-zinc-300 hover:bg-black hover:text-yellow-400{% endif %}"
+          >
+            <span class="nav-icon-slot inline-flex h-5 w-5 shrink-0 items-center justify-center">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M16 11a3 3 0 1 0-2.83-4M8 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M4.5 19a3.5 3.5 0 0 1 7 0M14 19a3.5 3.5 0 0 1 6.5-2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <span class="nav-label ml-3 whitespace-nowrap">Teachers</span>
+          </a>
+        </li>
+        <li>
+          <a
+            href="{% url 'dashboard:classes' %}"
+            title="Classes"
+            class="nav-link flex w-full items-center overflow-hidden px-4 py-2.5 text-sm {% if request.resolver_match.url_name == 'classes' or request.resolver_match.kwargs.stream_slug %}is-active bg-yellow-400 text-black{% else %}text-zinc-300 hover:bg-black hover:text-yellow-400{% endif %}"
+          >
+            <span class="nav-icon-slot inline-flex h-5 w-5 shrink-0 items-center justify-center">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 19V7.5L12 4l8 3.5V19" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                <path d="M4 10l8 3.5L20 10M12 13.5V20" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span class="nav-label ml-3 whitespace-nowrap">Classes</span>
+          </a>
+        </li>
+        <li>
+          <a
+            href="{% url 'finance:overview' %}"
+            title="Finance"
+            class="nav-link flex w-full items-center overflow-hidden px-4 py-2.5 text-sm {% if request.resolver_match.namespace == 'finance' %}is-active bg-yellow-400 text-black{% else %}text-zinc-300 hover:bg-black hover:text-yellow-400{% endif %}"
+          >
+            <span class="nav-icon-slot inline-flex h-5 w-5 shrink-0 items-center justify-center">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 3v18M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3 2 3 4.5 3 4.5 1.3 4.5 3-2 3-4.5 3-4.5-1.3-4.5-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <span class="nav-label ml-3 whitespace-nowrap">Finance</span>
+          </a>
+        </li>
+        {% endif %}
+
+        {% if is_class_teacher %}
+          {% for stream in assigned_streams %}
+          <li>
+            <a
+              href="{% url 'dashboard:stream_roster' stream.slug %}"
+              title="{{ stream }}"
+              class="nav-link flex w-full items-center overflow-hidden px-4 py-2.5 text-sm {% if request.resolver_match.kwargs.stream_slug == stream.slug %}is-active bg-yellow-400 text-black{% else %}text-zinc-300 hover:bg-black hover:text-yellow-400{% endif %}"
+            >
+              <span class="nav-icon-slot inline-flex h-5 w-5 shrink-0 items-center justify-center">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M5 5h10a2 2 0 0 1 2 2v12l-3-2-3 2-3-2-3 2V7a2 2 0 0 1 2-2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                  <path d="M9 9h6M9 12h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              </span>
+              <span class="nav-label ml-3 whitespace-nowrap">{{ stream }}</span>
+            </a>
+          </li>
+          {% empty %}
+            <li class="nav-label px-4 py-2 text-sm text-zinc-500 whitespace-nowrap">No streams assigned</li>
+          {% endfor %}
+        {% endif %}
+      </ul>
+    </nav>
+
+    <div class="profile-meta absolute bottom-0 left-0 right-0 border-t border-zinc-800 bg-zinc-950">
+      {% if user.is_authenticated %}
+        <div class="profile-avatar-menu relative flex h-12 items-center px-4">
+          <button
+            type="button"
+            class="profile-avatar-trigger nav-icon-slot inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full hover:ring-2 hover:ring-yellow-400"
+            aria-haspopup="menu"
+            aria-expanded="false"
+            aria-label="Account menu"
+          >
+            {% user_avatar user size=32 %}
+          </button>
+          <div class="nav-label ml-3 flex min-w-0 items-center gap-2 whitespace-nowrap">
+            <span class="truncate text-sm font-medium text-zinc-100">
+              {{ user.get_full_name|default:user.get_username }}
+            </span>
+            {% if role_label %}
+              <span class="rounded-md border border-yellow-400 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-yellow-400">
+                {{ role_label }}
+              </span>
+            {% endif %}
+          </div>
+
+          <div class="avatar-flyout z-[60] w-52 rounded-md border border-zinc-800 bg-black" role="menu">
+            <div class="border-b border-zinc-800 px-3 py-2">
+              <p class="truncate text-sm font-medium text-zinc-100">{{ user.get_full_name|default:user.get_username }}</p>
+              {% if role_label %}
+                <p class="mt-1 font-mono text-[10px] uppercase tracking-wider text-yellow-400">{{ role_label }}</p>
+              {% endif %}
+            </div>
+            <a
+              href="{% url 'tenants:profile' %}"
+              role="menuitem"
+              class="block border-b border-zinc-800 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-950 hover:text-yellow-400"
+            >Profile</a>
+            {% if can_switch_role %}
+              <p class="px-3 pt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Work as</p>
+              <div class="space-y-1 p-2">
+                <form method="post" action="{% url 'tenants:role_mode' 'admin' %}" hx-boost="false">
+                  {% csrf_token %}
+                  <button
+                    type="submit"
+                    role="menuitem"
+                    class="w-full rounded-md border px-2 py-1.5 text-left font-mono text-[10px] uppercase tracking-wider {% if role_mode == 'admin' %}border-yellow-400 bg-yellow-400 text-black{% else %}border-zinc-800 text-zinc-300 hover:border-yellow-400 hover:text-yellow-400{% endif %}"
+                  >Admin</button>
+                </form>
+                <form method="post" action="{% url 'tenants:role_mode' 'teacher' %}" hx-boost="false">
+                  {% csrf_token %}
+                  <button
+                    type="submit"
+                    role="menuitem"
+                    class="w-full rounded-md border px-2 py-1.5 text-left font-mono text-[10px] uppercase tracking-wider {% if role_mode == 'teacher' %}border-yellow-400 bg-yellow-400 text-black{% else %}border-zinc-800 text-zinc-300 hover:border-yellow-400 hover:text-yellow-400{% endif %}"
+                  >Teacher</button>
+                </form>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if can_switch_role %}
+        <div class="role-switcher border-t border-zinc-800 px-4 py-2">
+          <p class="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Work as</p>
+          <div class="flex gap-2">
+            <form method="post" action="{% url 'tenants:role_mode' 'admin' %}" hx-boost="false" class="flex-1">
+              {% csrf_token %}
+              <button
+                type="submit"
+                class="w-full rounded-md border px-2 py-1.5 font-mono text-[10px] uppercase tracking-wider {% if role_mode == 'admin' %}border-yellow-400 bg-yellow-400 text-black{% else %}border-zinc-800 text-zinc-400 hover:border-yellow-400 hover:text-yellow-400{% endif %}"
+              >Admin</button>
+            </form>
+            <form method="post" action="{% url 'tenants:role_mode' 'teacher' %}" hx-boost="false" class="flex-1">
+              {% csrf_token %}
+              <button
+                type="submit"
+                class="w-full rounded-md border px-2 py-1.5 font-mono text-[10px] uppercase tracking-wider {% if role_mode == 'teacher' %}border-yellow-400 bg-yellow-400 text-black{% else %}border-zinc-800 text-zinc-400 hover:border-yellow-400 hover:text-yellow-400{% endif %}"
+              >Teacher</button>
+            </form>
+          </div>
+        </div>
+        {% endif %}
+
+        <form method="post" action="{% url 'logout' %}" class="overflow-hidden" hx-boost="false">
+          {% csrf_token %}
+          <button
+            type="submit"
+            title="Log out"
+            class="nav-link flex h-12 w-full items-center overflow-hidden px-4 text-left text-sm text-zinc-300 hover:bg-black hover:text-yellow-400"
+          >
+            <span class="nav-icon-slot inline-flex h-5 w-5 shrink-0 items-center justify-center">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M10 7V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-8a1 1 0 0 1-1-1v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M4 12h10M8 8l-4 4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span class="nav-label ml-3 whitespace-nowrap">Log out</span>
+          </button>
+        </form>
+      {% else %}
+        <a
+          href="{% url 'login' %}"
+          class="m-3 flex items-center justify-center gap-2 rounded-md border border-yellow-400 bg-black px-3 py-2 text-sm font-medium text-yellow-400 hover:bg-yellow-400 hover:text-black"
+        >
+          Sign in
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</aside>

@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} · Kora{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    {% if overview_mode == 'teacher' %}
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">My Classes</h2>
+        <p class="mt-2 max-w-2xl text-sm text-zinc-400">
+          Your assigned streams, roster sizes, and quick access to class lists.
+        </p>
+      </div>
+
+      {% if request.school %}
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">My Streams</p>
+            <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ my_stream_count }}</p>
+          </div>
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Active Students</p>
+            <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ my_student_count }}</p>
+          </div>
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Inactive</p>
+            <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ inactive_student_count }}</p>
+          </div>
+        </div>
+
+        {% if stream_cards %}
+          <div class="space-y-3">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Assigned streams</p>
+            <ul class="divide-y divide-zinc-800 overflow-hidden rounded-md border border-zinc-800 bg-black">
+              {% for card in stream_cards %}
+                <li class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                  <div>
+                    <p class="text-sm font-semibold text-zinc-100">{{ card.stream }}</p>
+                    <p class="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+                      {{ card.student_count }} active student{{ card.student_count|pluralize }}
+                    </p>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <a
+                      href="{% url 'dashboard:stream_roster' card.stream.slug %}"
+                      class="rounded-md border border-yellow-400 bg-yellow-400 px-3 py-1.5 text-sm font-semibold text-black hover:bg-yellow-300"
+                    >
+                      Open roster
+                    </a>
+                    <a
+                      href="{% url 'dashboard:stream_finance' card.stream.slug %}"
+                      class="rounded-md border border-zinc-800 px-3 py-1.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+                    >
+                      Finance
+                    </a>
+                  </div>
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% else %}
+          <div class="rounded-md border border-zinc-800 bg-black px-4 py-6 text-sm text-zinc-400">
+            No class streams are assigned to you yet. An admin can assign you as class teacher from Classes.
+          </div>
+        {% endif %}
+      {% else %}
+        <div class="rounded-md border border-zinc-800 bg-black px-4 py-6 text-sm text-zinc-400">
+          No school is linked to this account.
+        </div>
+      {% endif %}
+
+    {% else %}
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 class="text-2xl font-semibold text-zinc-100">Command Center</h2>
+          <p class="mt-2 max-w-2xl text-sm text-zinc-400">
+            Monitor school staff, class streams, and roster activity from one flat operations surface.
+          </p>
+        </div>
+        {% if request.school and is_admin %}
+          <div class="flex shrink-0 flex-wrap gap-3">
+            <a href="{% url 'dashboard:teachers' %}" class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300">Manage Teachers</a>
+            <a href="{% url 'dashboard:classes' %}" class="rounded-md border border-zinc-800 bg-black px-4 py-2 text-sm font-semibold text-yellow-400 hover:border-yellow-400">Assign Classes</a>
+          </div>
+        {% endif %}
+      </div>
+
+      {% if request.school %}
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Staff</p>
+            <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ staff_count }}</p>
+          </div>
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Students</p>
+            <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ student_count }}</p>
+          </div>
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Streams</p>
+            <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ stream_count }}</p>
+          </div>
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Admins</p>
+            <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ admin_count }}/2</p>
+          </div>
+        </div>
+      {% else %}
+        <div class="rounded-md border border-zinc-800 bg-black px-4 py-6 text-sm text-zinc-400">
+          No school is linked to this account. Platform superusers manage tenants from Django admin.
+        </div>
+      {% endif %}
+    {% endif %}
+  </div>
+{% endblock %}

@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block title %}Teachers · Kora{% endblock %}
+
+{% block page_title %}Teachers{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">Teachers</span>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">Teachers &amp; Admins</h2>
+        <p class="mt-2 text-sm text-zinc-400">
+          Active admins: <span class="font-mono text-yellow-400">{{ admin_count }}/2</span>
+          {% if admin_slots_remaining == 0 %}
+            <span class="ml-2 rounded-md border border-zinc-800 px-2 py-0.5 font-mono text-[10px] uppercase text-zinc-500">Admin slots full</span>
+          {% endif %}
+        </p>
+      </div>
+      <button
+        type="button"
+        id="open-invite-modal"
+        class="shrink-0 rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+      >
+        Invite Staff
+      </button>
+    </div>
+
+    <div class="overflow-x-auto rounded-md border border-zinc-800">
+      <table class="min-w-full border-collapse text-left text-sm">
+        <thead class="bg-black">
+          <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+            <th class="px-4 py-3 font-medium">Name</th>
+            <th class="px-4 py-3 font-medium">Email</th>
+            <th class="px-4 py-3 font-medium">Roles</th>
+            <th class="px-4 py-3 font-medium">Assigned Streams</th>
+            <th class="px-4 py-3 font-medium">Status</th>
+            <th class="px-4 py-3 font-medium">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-zinc-950">
+          {% for row in staff_rows %}
+            <tr class="border-b border-zinc-800">
+              <td class="px-4 py-3 font-medium text-zinc-100">{{ row.name }}</td>
+              <td class="px-4 py-3 font-mono text-xs text-zinc-400">{{ row.user.email }}</td>
+              <td class="px-4 py-3">
+                <span class="rounded-md border border-yellow-400 px-2 py-0.5 font-mono text-[10px] uppercase text-yellow-400">{{ row.role }}</span>
+              </td>
+              <td class="px-4 py-3 text-zinc-300">
+                {% if row.streams %}
+                  <div class="flex flex-wrap gap-1">
+                    {% for stream in row.streams %}
+                      <a href="{% url 'dashboard:stream_roster' stream.slug %}" class="rounded-md border border-zinc-800 px-2 py-0.5 text-xs text-zinc-300 hover:border-yellow-400 hover:text-yellow-400">{{ stream }}</a>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <span class="text-zinc-600">—</span>
+                {% endif %}
+              </td>
+              <td class="px-4 py-3">
+                {% if row.user.is_active %}
+                  <span class="font-mono text-[10px] uppercase tracking-wider text-yellow-400">Active</span>
+                {% else %}
+                  <span class="font-mono text-[10px] uppercase tracking-wider text-red-400">Inactive</span>
+                {% endif %}
+              </td>
+              <td class="px-4 py-3">
+                <button
+                  type="button"
+                  class="open-edit-staff-modal text-xs text-zinc-500 hover:text-yellow-400"
+                  data-membership-id="{{ row.membership.pk }}"
+                  data-first-name="{{ row.user.first_name }}"
+                  data-last-name="{{ row.user.last_name }}"
+                  data-email="{{ row.user.email }}"
+                  data-is-admin="{% if row.membership.is_admin %}1{% else %}0{% endif %}"
+                  data-is-teacher="{% if row.membership.is_teacher %}1{% else %}0{% endif %}"
+                  data-is-active="{% if row.user.is_active %}1{% else %}0{% endif %}"
+                >Edit</button>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" class="px-4 py-8 text-center text-sm text-zinc-500">No staff members yet. Invite your first teacher.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if pending_invitations %}
+      <div class="rounded-md border border-zinc-800 bg-black p-4">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Pending invitations</p>
+        <ul class="mt-3 space-y-2">
+          {% for invite in pending_invitations %}
+            <li class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-zinc-800 px-3 py-2 text-sm">
+              <span class="font-mono text-xs text-zinc-300">{{ invite.email }}</span>
+              <span class="text-zinc-500">
+                {% if invite.role_admin and invite.role_teacher %}Dual
+                {% elif invite.role_admin %}Admin
+                {% else %}Teacher{% endif %}
+                · expires {{ invite.expires_at|date:"M j, Y" }}
+              </span>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+  </div>
+
+  {# Invite slide-over #}
+  <div
+    id="invite-backdrop"
+    class="{% if not show_invite_modal %}hidden{% endif %} fixed inset-0 z-50 bg-black/80"
+    aria-hidden="true"
+  ></div>
+  <aside
+    id="invite-panel"
+    class="{% if not show_invite_modal %}translate-x-full{% endif %} fixed inset-y-0 right-0 z-50 w-full max-w-md border-l border-zinc-800 bg-zinc-950 transition-transform duration-200"
+    aria-labelledby="invite-title"
+    role="dialog"
+    aria-modal="true"
+  >
+    <div class="flex h-14 items-center justify-between border-b border-zinc-800 px-4">
+      <h3 id="invite-title" class="text-sm font-semibold text-zinc-100">Invite staff</h3>
+      <button type="button" id="close-invite-modal" class="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-900 hover:text-yellow-400" aria-label="Close">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <form method="post" class="space-y-5 p-4" hx-boost="false">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="invite">
+      {% if invite_form.non_field_errors %}
+        <div class="rounded-md border border-red-500 px-3 py-2 text-sm text-red-400">
+          {{ invite_form.non_field_errors }}
+        </div>
+      {% endif %}
+      <div>
+        <label for="{{ invite_form.email.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Email</label>
+        {{ invite_form.email }}
+        {% if invite_form.email.errors %}
+          <p class="mt-1 text-xs text-red-400">{{ invite_form.email.errors|striptags }}</p>
+        {% endif %}
+      </div>
+      <div class="space-y-3 rounded-md border border-zinc-800 bg-black p-3">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Roles</p>
+        <label class="flex items-center justify-between gap-3 text-sm text-zinc-200">
+          <span>Teacher</span>
+          {{ invite_form.role_teacher }}
+        </label>
+        <label class="flex items-center justify-between gap-3 text-sm {% if admin_slots_remaining <= 0 %}text-zinc-600{% else %}text-zinc-200{% endif %}">
+          <span>
+            Admin
+            {% if admin_slots_remaining <= 0 %}
+              <span class="mt-1 block font-mono text-[10px] uppercase text-zinc-600">Disabled — 2 admins already active</span>
+            {% endif %}
+          </span>
+          {{ invite_form.role_admin }}
+        </label>
+        {% if invite_form.role_admin.errors %}
+          <p class="text-xs text-red-400">{{ invite_form.role_admin.errors|striptags }}</p>
+        {% endif %}
+      </div>
+      <button type="submit" class="w-full rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
+        Send invitation
+      </button>
+    </form>
+  </aside>
+
+  {# Edit staff slide-over #}
+  <div
+    id="edit-staff-backdrop"
+    class="{% if not show_edit_modal %}hidden{% endif %} fixed inset-0 z-50 bg-black/80"
+    aria-hidden="true"
+  ></div>
+  <aside
+    id="edit-staff-panel"
+    class="{% if not show_edit_modal %}translate-x-full{% endif %} fixed inset-y-0 right-0 z-50 w-full max-w-md border-l border-zinc-800 bg-zinc-950 transition-transform duration-200"
+    aria-labelledby="edit-staff-title"
+    role="dialog"
+    aria-modal="true"
+  >
+    <div class="flex h-14 items-center justify-between border-b border-zinc-800 px-4">
+      <h3 id="edit-staff-title" class="text-sm font-semibold text-zinc-100">Edit staff</h3>
+      <button type="button" id="close-edit-staff-modal" class="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-900 hover:text-yellow-400" aria-label="Close">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <form method="post" class="space-y-5 p-4" hx-boost="false" id="edit-staff-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="edit_staff">
+      <input type="hidden" name="membership_id" id="edit-membership-id" value="{% if editing_membership %}{{ editing_membership.pk }}{% endif %}">
+      {% if edit_form.non_field_errors %}
+        <div class="rounded-md border border-red-500 px-3 py-2 text-sm text-red-400">
+          {{ edit_form.non_field_errors }}
+        </div>
+      {% endif %}
+      <div>
+        <label for="{{ edit_form.first_name.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">First name</label>
+        {{ edit_form.first_name }}
+        {% if edit_form.first_name.errors %}
+          <p class="mt-1 text-xs text-red-400">{{ edit_form.first_name.errors|striptags }}</p>
+        {% endif %}
+      </div>
+      <div>
+        <label for="{{ edit_form.last_name.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Last name</label>
+        {{ edit_form.last_name }}
+        {% if edit_form.last_name.errors %}
+          <p class="mt-1 text-xs text-red-400">{{ edit_form.last_name.errors|striptags }}</p>
+        {% endif %}
+      </div>
+      <div>
+        <label for="{{ edit_form.email.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Email</label>
+        {{ edit_form.email }}
+        {% if edit_form.email.errors %}
+          <p class="mt-1 text-xs text-red-400">{{ edit_form.email.errors|striptags }}</p>
+        {% endif %}
+      </div>
+      <div class="space-y-3 rounded-md border border-zinc-800 bg-black p-3">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Roles</p>
+        <label class="flex items-center justify-between gap-3 text-sm text-zinc-200">
+          <span>Teacher</span>
+          {{ edit_form.is_teacher }}
+        </label>
+        <label class="flex items-center justify-between gap-3 text-sm text-zinc-200">
+          <span>Admin</span>
+          {{ edit_form.is_admin }}
+        </label>
+        {% if edit_form.is_admin.errors %}
+          <p class="text-xs text-red-400">{{ edit_form.is_admin.errors|striptags }}</p>
+        {% endif %}
+      </div>
+      <label class="flex items-center justify-between gap-3 rounded-md border border-zinc-800 bg-black px-3 py-3 text-sm text-zinc-200">
+        <span>Active account</span>
+        {{ edit_form.is_active }}
+      </label>
+      <button type="submit" class="w-full rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
+        Save changes
+      </button>
+    </form>
+  </aside>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    function wireDrawer(panelId, backdropId, closeId, openIds) {
+      const panel = document.getElementById(panelId);
+      const backdrop = document.getElementById(backdropId);
+      const closeBtn = document.getElementById(closeId);
+      if (!panel || !backdrop || !closeBtn) return null;
+      function openModal() {
+        panel.classList.remove('translate-x-full');
+        backdrop.classList.remove('hidden');
+        if (window.KoraOverlay) window.KoraOverlay.lock();
+      }
+      function closeModal() {
+        panel.classList.add('translate-x-full');
+        backdrop.classList.add('hidden');
+        if (window.KoraOverlay) window.KoraOverlay.unlock();
+      }
+      (openIds || []).forEach(function (id) {
+        const btn = document.getElementById(id);
+        if (btn) btn.addEventListener('click', openModal);
+      });
+      closeBtn.addEventListener('click', closeModal);
+      backdrop.addEventListener('click', closeModal);
+      if (!panel.classList.contains('translate-x-full') && window.KoraOverlay) {
+        window.KoraOverlay.lock();
+      }
+      return { openModal: openModal, closeModal: closeModal, panel: panel };
+    }
+
+    wireDrawer('invite-panel', 'invite-backdrop', 'close-invite-modal', ['open-invite-modal']);
+
+    const editDrawer = wireDrawer(
+      'edit-staff-panel',
+      'edit-staff-backdrop',
+      'close-edit-staff-modal',
+      []
+    );
+    if (!editDrawer) return;
+
+    const membershipInput = document.getElementById('edit-membership-id');
+    const firstName = document.getElementById('{{ edit_form.first_name.id_for_label }}');
+    const lastName = document.getElementById('{{ edit_form.last_name.id_for_label }}');
+    const email = document.getElementById('{{ edit_form.email.id_for_label }}');
+    const isAdmin = document.getElementById('{{ edit_form.is_admin.id_for_label }}');
+    const isTeacher = document.getElementById('{{ edit_form.is_teacher.id_for_label }}');
+    const isActive = document.getElementById('{{ edit_form.is_active.id_for_label }}');
+
+    document.querySelectorAll('.open-edit-staff-modal').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (membershipInput) membershipInput.value = btn.dataset.membershipId || '';
+        if (firstName) firstName.value = btn.dataset.firstName || '';
+        if (lastName) lastName.value = btn.dataset.lastName || '';
+        if (email) email.value = btn.dataset.email || '';
+        if (isAdmin) isAdmin.checked = btn.dataset.isAdmin === '1';
+        if (isTeacher) isTeacher.checked = btn.dataset.isTeacher === '1';
+        if (isActive) isActive.checked = btn.dataset.isActive === '1';
+        editDrawer.openModal();
+      });
+    });
+  })();
+</script>
+{% endblock %}

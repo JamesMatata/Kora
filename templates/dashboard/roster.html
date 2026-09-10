@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Roster · {{ stream }} · Kora{% endblock %}
+
+{% block page_title %}Roster{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  {% if is_admin %}
+    <a href="{% url 'dashboard:classes' %}" class="hover:text-yellow-400">Classes</a>
+    <span class="text-zinc-700">/</span>
+  {% endif %}
+  <span class="text-zinc-300">{{ stream }}</span>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div class="space-y-4">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div class="min-w-0">
+          <h2 class="text-2xl font-semibold text-zinc-100">{{ stream }}</h2>
+          <p class="mt-2 text-sm text-zinc-400">
+            Teacher:
+            {% if stream.class_teacher %}
+              <span class="text-yellow-400">{{ stream.class_teacher.get_full_name|default:stream.class_teacher.email }}</span>
+            {% else %}
+              <span class="text-zinc-600">Unassigned</span>
+            {% endif %}
+          </p>
+        </div>
+        <div class="flex shrink-0 flex-wrap items-center gap-2">
+          <a
+            href="{% url 'dashboard:student_create' stream.slug %}"
+            class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+          >
+            Add student
+          </a>
+          <a
+            href="{% url 'dashboard:student_import' stream.slug %}"
+            title="Import students"
+            aria-label="Import students"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-zinc-800 bg-black text-yellow-400 hover:border-yellow-400"
+          >
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 3v10m0 0l-3.5-3.5M12 13l3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M4 17.5V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </a>
+          <a
+            href="{% url 'dashboard:stream_finance' stream.slug %}"
+            class="rounded-md border border-zinc-800 bg-black px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+          >
+            Finance
+          </a>
+        </div>
+      </div>
+      <div class="max-w-md">
+        <label for="roster-search" class="sr-only">Search</label>
+        <input
+          id="roster-search"
+          type="search"
+          name="q"
+          value="{{ query }}"
+          placeholder="Search name or admission number"
+          class="w-full rounded-md border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+          hx-get="{% url 'dashboard:stream_roster' stream.slug %}"
+          hx-trigger="keyup changed delay:300ms, search"
+          hx-target="#roster-table"
+          hx-swap="outerHTML"
+          autocomplete="off"
+        >
+      </div>
+    </div>
+
+    {% include "dashboard/partials/roster_table.html" %}
+  </div>
+{% endblock %}

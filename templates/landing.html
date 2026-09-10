@@ -1,0 +1,168 @@
+{% extends "public_base.html" %}
+{% load static %}
+
+{% block title %}Kora · School operations{% endblock %}
+
+{% block extra_css %}
+    .hero-plane {
+      background:
+        radial-gradient(ellipse 80% 60% at 70% 20%, rgba(250, 204, 21, 0.12), transparent 55%),
+        radial-gradient(ellipse 50% 40% at 10% 80%, rgba(39, 39, 42, 0.9), transparent 50%),
+        linear-gradient(165deg, #000000 0%, #0a0a0a 45%, #121212 100%);
+    }
+    .hero-grid {
+      background-image:
+        linear-gradient(rgba(39, 39, 42, 0.45) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(39, 39, 42, 0.45) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+    }
+
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes draw-line {
+      from { transform: scaleX(0); }
+      to { transform: scaleX(1); }
+    }
+    .anim-fade { animation: fade-up 0.7s ease-out both; }
+    .anim-fade-delay { animation: fade-up 0.7s ease-out 0.12s both; }
+    .anim-fade-delay-2 { animation: fade-up 0.7s ease-out 0.24s both; }
+    .anim-line {
+      transform-origin: left center;
+      animation: draw-line 0.9s ease-out 0.35s both;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .anim-fade, .anim-fade-delay, .anim-fade-delay-2, .anim-line {
+        animation: none;
+      }
+    }
+{% endblock %}
+
+{% block body %}
+  <main>
+    <section class="hero-plane relative min-h-[100svh] overflow-hidden pt-14">
+      <div class="hero-grid pointer-events-none absolute inset-0" aria-hidden="true"></div>
+      <div class="relative mx-auto flex min-h-[calc(100svh-3.5rem)] max-w-6xl flex-col justify-center px-4 py-16 lg:px-8 lg:py-24">
+        <p class="anim-fade font-mono text-xs uppercase tracking-[0.22em] text-zinc-500">School operations</p>
+        <h1 class="anim-fade-delay mt-4 max-w-3xl text-5xl font-bold tracking-tight text-yellow-400 sm:text-6xl lg:text-7xl">
+          Kora
+        </h1>
+        <div class="anim-line mt-5 h-px w-24 bg-yellow-400" aria-hidden="true"></div>
+        <p class="anim-fade-delay-2 mt-6 max-w-xl text-lg leading-relaxed text-zinc-300 sm:text-xl">
+          Run classes, staff, and fees in one calm system — built for how schools actually work.
+        </p>
+        <div class="anim-fade-delay-2 mt-10 flex flex-wrap items-center gap-3">
+          <a href="{% url 'signup' %}" class="rounded-md border border-yellow-400 bg-yellow-400 px-5 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
+            Create your school
+          </a>
+          <a href="{% url 'login' %}" class="rounded-md border border-zinc-700 px-5 py-2.5 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400">
+            Sign in
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="border-t border-zinc-800 bg-kora-graphite">
+      <div class="mx-auto max-w-6xl px-4 py-20 lg:px-8 lg:py-28">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">How it works</p>
+        <h2 class="mt-3 max-w-2xl text-3xl font-semibold text-zinc-100 sm:text-4xl">Three steps from empty to running.</h2>
+        <ol class="mt-14 space-y-10 border-l border-zinc-800 pl-6 sm:pl-8">
+          <li class="relative">
+            <span class="absolute -left-[1.9rem] top-0 flex h-6 w-6 items-center justify-center rounded-full border border-zinc-700 bg-black font-mono text-[10px] text-yellow-400 sm:-left-[2.4rem]">1</span>
+            <h3 class="text-lg font-semibold text-zinc-100">Create your school</h3>
+            <p class="mt-2 max-w-xl text-sm leading-relaxed text-zinc-400">Set up your school profile in minutes. Invite colleagues when you are ready.</p>
+          </li>
+          <li class="relative">
+            <span class="absolute -left-[1.9rem] top-0 flex h-6 w-6 items-center justify-center rounded-full border border-zinc-700 bg-black font-mono text-[10px] text-yellow-400 sm:-left-[2.4rem]">2</span>
+            <h3 class="text-lg font-semibold text-zinc-100">Structure classes &amp; staff</h3>
+            <p class="mt-2 max-w-xl text-sm leading-relaxed text-zinc-400">Add grades and streams, assign teachers, and keep roles clear for admins and classroom staff.</p>
+          </li>
+          <li class="relative">
+            <span class="absolute -left-[1.9rem] top-0 flex h-6 w-6 items-center justify-center rounded-full border border-zinc-700 bg-black font-mono text-[10px] text-yellow-400 sm:-left-[2.4rem]">3</span>
+            <h3 class="text-lg font-semibold text-zinc-100">Run roster &amp; fees</h3>
+            <p class="mt-2 max-w-xl text-sm leading-relaxed text-zinc-400">Import students, post charges, and record payments — with balances you can trust.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="border-t border-zinc-800 bg-black">
+      <div class="mx-auto max-w-6xl px-4 py-20 lg:px-8 lg:py-28">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Available now</p>
+        <h2 class="mt-3 max-w-2xl text-3xl font-semibold text-zinc-100 sm:text-4xl">Everything you need to operate today.</h2>
+        <div class="mt-14 divide-y divide-zinc-800 border-y border-zinc-800">
+          <div class="grid gap-2 py-8 sm:grid-cols-[minmax(0,14rem)_1fr] sm:gap-10">
+            <h3 class="text-base font-semibold text-yellow-400">Roster</h3>
+            <p class="text-sm leading-relaxed text-zinc-400">Student records with admission numbers, guardian contacts, and CSV or Excel import so you are not typing every name by hand.</p>
+          </div>
+          <div class="grid gap-2 py-8 sm:grid-cols-[minmax(0,14rem)_1fr] sm:gap-10">
+            <h3 class="text-base font-semibold text-yellow-400">Classes &amp; streams</h3>
+            <p class="text-sm leading-relaxed text-zinc-400">Grades with streams, class teachers, and a clear path from overview to roster and finance for each class.</p>
+          </div>
+          <div class="grid gap-2 py-8 sm:grid-cols-[minmax(0,14rem)_1fr] sm:gap-10">
+            <h3 class="text-base font-semibold text-yellow-400">Staff &amp; roles</h3>
+            <p class="text-sm leading-relaxed text-zinc-400">Invite teachers and admins by email, accept invitations in inbox, and switch between admin and teacher focus when you wear both hats.</p>
+          </div>
+          <div class="grid gap-2 py-8 sm:grid-cols-[minmax(0,14rem)_1fr] sm:gap-10">
+            <h3 class="text-base font-semibold text-yellow-400">Fees &amp; payments</h3>
+            <p class="text-sm leading-relaxed text-zinc-400">Create charges for the whole school or selected classes, track due and paid, and record payments against student balances.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="border-t border-zinc-800 bg-kora-graphite">
+      <div class="mx-auto max-w-6xl px-4 py-20 lg:px-8 lg:py-28">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">On the roadmap</p>
+        <h2 class="mt-3 max-w-2xl text-3xl font-semibold text-zinc-100 sm:text-4xl">Built to grow with your school.</h2>
+        <p class="mt-4 max-w-xl text-sm leading-relaxed text-zinc-400">These are next — not pretend features. Kora is shaped for Kenyan school operations from day one.</p>
+        <ul class="mt-12 grid gap-6 sm:grid-cols-2">
+          <li class="border-l-2 border-yellow-400/40 pl-4">
+            <p class="font-medium text-zinc-100">M-Pesa collections</p>
+            <p class="mt-1 text-sm text-zinc-500">Paybill and till reconciliation into student balances.</p>
+          </li>
+          <li class="border-l-2 border-yellow-400/40 pl-4">
+            <p class="font-medium text-zinc-100">Attendance</p>
+            <p class="mt-1 text-sm text-zinc-500">Daily classroom attendance tied to your roster.</p>
+          </li>
+          <li class="border-l-2 border-yellow-400/40 pl-4">
+            <p class="font-medium text-zinc-100">Parent-facing fees</p>
+            <p class="mt-1 text-sm text-zinc-500">Clear statements parents can understand and act on.</p>
+          </li>
+          <li class="border-l-2 border-yellow-400/40 pl-4">
+            <p class="font-medium text-zinc-100">Academic years</p>
+            <p class="mt-1 text-sm text-zinc-500">Term and year boundaries without losing history.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="border-t border-zinc-800 bg-black">
+      <div class="mx-auto max-w-6xl px-4 py-20 lg:px-8 lg:py-28">
+        <h2 class="max-w-2xl text-3xl font-semibold text-zinc-100 sm:text-4xl">Ready when your school is.</h2>
+        <p class="mt-4 max-w-lg text-sm leading-relaxed text-zinc-400">Create an account, set up your school, and start with the classes you run today.</p>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a href="{% url 'signup' %}" class="rounded-md border border-yellow-400 bg-yellow-400 px-5 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
+            Create your school
+          </a>
+          <a href="{% url 'login' %}" class="rounded-md border border-zinc-700 px-5 py-2.5 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400">
+            Sign in
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-zinc-800 bg-kora-graphite">
+    <div class="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-8 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+      <a href="{% url 'landing' %}" class="flex items-center no-underline" aria-label="Kora">
+        <img src="{% static 'img/kora-logo.png' %}" alt="Kora" class="h-4 w-auto">
+      </a>
+      <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-600">School operations</p>
+      <a href="{% url 'login' %}" class="text-sm text-zinc-400 hover:text-yellow-400">Sign in</a>
+    </div>
+  </footer>
+{% endblock %}

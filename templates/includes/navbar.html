@@ -1,0 +1,117 @@
+{% load static %}
+{% load avatars %}
+<header class="sticky top-0 z-50 flex h-14 w-full items-center justify-between border-b border-zinc-800 bg-black px-3 sm:px-4">
+  <div class="flex min-w-0 items-center gap-3">
+    <button
+      type="button"
+      id="sidebar-toggle"
+      class="inline-flex shrink-0 items-center justify-center text-zinc-100 hover:text-yellow-400"
+      aria-label="Toggle navigation"
+      aria-controls="app-sidebar"
+      aria-expanded="true"
+    >
+      <svg class="h-5 w-5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.5"/>
+      </svg>
+    </button>
+
+    <a href="{% url 'dashboard:overview' %}" class="flex shrink-0 items-center no-underline">
+      <img
+        src="{% static 'img/kora-logo.png' %}"
+        alt="Kora"
+        class="h-5 w-auto sm:h-6"
+      >
+    </a>
+  </div>
+
+  {% if user.is_authenticated %}
+  <div class="ml-auto flex items-center gap-2 sm:gap-3">
+  <div class="relative max-w-[min(100%,18rem)]" id="tenant-switcher">
+    <button
+      type="button"
+      id="tenant-switcher-toggle"
+      class="flex w-full min-w-[10rem] items-center justify-between gap-2 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-left hover:border-yellow-400 sm:min-w-[14rem]"
+      aria-expanded="false"
+      aria-controls="tenant-switcher-menu"
+    >
+      <div class="min-w-0">
+        <p class="truncate text-sm font-medium text-zinc-100">
+          {% if active_school %}{{ active_school.name }}{% else %}Select a school{% endif %}
+        </p>
+      </div>
+      <svg class="h-4 w-4 shrink-0 text-yellow-400" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5"/>
+      </svg>
+    </button>
+
+    <div
+      id="tenant-switcher-menu"
+      class="absolute right-0 z-50 mt-1 hidden w-72 overflow-hidden rounded-md border border-zinc-800 bg-black"
+      role="menu"
+    >
+      <div class="max-h-60 overflow-y-auto">
+        {% for membership in user_memberships %}
+          {% if active_school and membership.school_id == active_school.id %}
+            <div class="flex flex-col border-b border-zinc-800 bg-zinc-950 px-3 py-2" role="menuitem" aria-current="true">
+              <span class="truncate text-sm text-yellow-400">{{ membership.school.name }}</span>
+              <span class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">{{ membership.role_label }} · current</span>
+            </div>
+          {% else %}
+            <form method="post" action="{% url 'tenants:switch' membership.school_id %}" hx-boost="false">
+              {% csrf_token %}
+              <button
+                type="submit"
+                class="flex w-full flex-col border-b border-zinc-800 px-3 py-2 text-left hover:bg-zinc-950"
+                role="menuitem"
+              >
+                <span class="truncate text-sm text-zinc-100">{{ membership.school.name }}</span>
+                <span class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">{{ membership.role_label }}</span>
+              </button>
+            </form>
+          {% endif %}
+        {% empty %}
+          <p class="px-3 py-3 text-sm text-zinc-500">No schools yet</p>
+        {% endfor %}
+      </div>
+
+      <div class="border-t border-zinc-800">
+        <a
+          href="{% url 'tenants:create' %}"
+          class="block px-3 py-2.5 text-sm font-semibold text-yellow-400 hover:bg-zinc-950"
+          role="menuitem"
+        >+ New School</a>
+        <a
+          href="{% url 'tenants:select' %}"
+          class="block border-t border-zinc-800 px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-950 hover:text-yellow-400"
+          role="menuitem"
+        >Manage all schools</a>
+      </div>
+    </div>
+  </div>
+  <a
+    href="{% url 'tenants:inbox' %}"
+    title="Inbox"
+    class="relative inline-flex h-9 w-9 shrink-0 items-center justify-center text-zinc-300 hover:text-yellow-400 {% if request.resolver_match.namespace == 'tenants' and request.resolver_match.url_name == 'inbox' %}text-yellow-400{% endif %}"
+  >
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 7.5A1.5 1.5 0 0 1 5.5 6h13A1.5 1.5 0 0 1 20 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5v-9z" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M4.5 7.5 12 13l7.5-5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    {% if inbox_badge_count %}
+      <span class="absolute -right-0.5 -top-0.5 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-bold leading-4 text-black">
+        {{ inbox_badge_count }}
+      </span>
+    {% endif %}
+    <span class="sr-only">Inbox{% if inbox_badge_count %} ({{ inbox_badge_count }}){% endif %}</span>
+  </a>
+  <a
+    href="{% url 'tenants:profile' %}"
+    title="Profile"
+    class="inline-flex shrink-0 items-center justify-center {% if request.resolver_match.namespace == 'tenants' and request.resolver_match.url_name == 'profile' %}ring-2 ring-yellow-400 ring-offset-1 ring-offset-black rounded-full{% endif %}"
+  >
+    {% user_avatar user size=36 %}
+    <span class="sr-only">Profile</span>
+  </a>
+  </div>
+  {% endif %}
+</header>

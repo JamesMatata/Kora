@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} · Kora{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  <a href="{% url roster_back_url|default:'dashboard:stream_roster' roster_slug|default:stream.slug %}" class="hover:text-yellow-400">
+    {% if placement_kind == 'grade' %}{{ grade.name }}{% else %}{{ stream }}{% endif %}
+  </a>
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">Import</span>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">Import students</h2>
+        <p class="mt-2 max-w-2xl text-sm text-zinc-400">
+          Upload a CSV or Excel file for {% if placement_kind == 'grade' %}{{ grade.name }}{% else %}{{ stream }}{% endif %}.
+          Valid rows are saved; incomplete or invalid rows are skipped and listed below.
+        </p>
+      </div>
+      <div class="flex shrink-0 flex-wrap gap-3">
+        <a
+          href="{% url template_url|default:'dashboard:student_import_template' roster_slug|default:stream.slug %}"
+          class="rounded-md border border-zinc-800 bg-black px-4 py-2 text-sm font-semibold text-yellow-400 hover:border-yellow-400"
+        >
+          Download template
+        </a>
+        <a
+          href="{% url roster_back_url|default:'dashboard:stream_roster' roster_slug|default:stream.slug %}"
+          class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+        >
+          Back to roster
+        </a>
+      </div>
+    </div>
+
+    <div class="rounded-md border border-zinc-800 bg-black p-4 text-sm text-zinc-400">
+      <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Required columns</p>
+      <p class="mt-2">admission_number, first_name, last_name, parent_name, parent_phone</p>
+      <p class="mt-1">Optional: is_active (yes/no). Phone must be E.164, e.g. +254712345678.</p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="space-y-4 rounded-md border border-zinc-800 bg-black p-5" hx-boost="false">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="rounded-md border border-red-500 px-3 py-2 text-sm text-red-400">{{ form.non_field_errors }}</div>
+      {% endif %}
+      <div>
+        <label for="{{ form.file.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">{{ form.file.label }}</label>
+        {{ form.file }}
+        {% if form.file.help_text %}
+          <p class="mt-1 text-xs text-zinc-500">{{ form.file.help_text }}</p>
+        {% endif %}
+        {% if form.file.errors %}
+          <p class="mt-1 text-xs text-red-400">{{ form.file.errors|striptags }}</p>
+        {% endif %}
+      </div>
+      <button type="submit" class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
+        Import students
+      </button>
+    </form>
+
+    {% if report %}
+      <div class="space-y-3">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Import report</p>
+        <div class="grid gap-3 sm:grid-cols-3">
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Created</p>
+            <p class="mt-2 text-2xl font-semibold text-yellow-400">{{ report.created }}</p>
+          </div>
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Updated</p>
+            <p class="mt-2 text-2xl font-semibold text-yellow-400">{{ report.updated }}</p>
+          </div>
+          <div class="rounded-md border border-zinc-800 bg-black p-4">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Skipped</p>
+            <p class="mt-2 text-2xl font-semibold text-yellow-400">{{ report.skipped }}</p>
+          </div>
+        </div>
+        {% if report.failed_rows %}
+          <div class="overflow-x-auto rounded-md border border-zinc-800">
+            <table class="min-w-full border-collapse text-left text-sm">
+              <thead class="bg-black">
+                <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                  <th class="px-4 py-3 font-medium">Row</th>
+                  <th class="px-4 py-3 font-medium">Admission</th>
+                  <th class="px-4 py-3 font-medium">Reason</th>
+                </tr>
+              </thead>
+              <tbody class="bg-zinc-950">
+                {% for row in report.failed_rows %}
+                  <tr class="border-b border-zinc-800">
+                    <td class="px-4 py-3 font-mono text-xs text-zinc-500">{{ row.row_number }}</td>
+                    <td class="px-4 py-3 font-mono text-xs text-zinc-300">{{ row.admission_number|default:"—" }}</td>
+                    <td class="px-4 py-3 text-zinc-400">{{ row.message }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

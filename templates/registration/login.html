@@ -1,0 +1,87 @@
+{% extends "public_base.html" %}
+
+{% block title %}Sign in · Kora{% endblock %}
+
+{% block body %}
+  <main class="flex min-h-full items-center justify-center px-4 pb-16 pt-36 sm:pt-40">
+    <div class="w-full max-w-sm">
+      <h1 class="text-3xl font-semibold text-zinc-100">Sign in</h1>
+      <p class="mt-2 text-sm text-zinc-400">Welcome back. Access your school workspace.</p>
+
+      <form method="post" class="mt-6 space-y-4" hx-boost="false">
+        {% csrf_token %}
+        {% if form.errors %}
+          <div class="rounded-md border border-red-500 px-3 py-2 text-sm text-red-400">
+            Invalid email or password. Please try again.
+          </div>
+        {% endif %}
+
+        <input
+          type="email"
+          name="username"
+          id="id_username"
+          autofocus
+          required
+          autocomplete="username"
+          placeholder="Email"
+          aria-label="Email"
+          class="w-full rounded-md border border-zinc-800 bg-black px-3 py-2.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-yellow-400"
+        >
+
+        <div class="relative">
+          <input
+            type="password"
+            name="password"
+            id="id_password"
+            required
+            autocomplete="current-password"
+            placeholder="Password"
+            aria-label="Password"
+            class="w-full rounded-md border border-zinc-800 bg-black px-3 py-2.5 pr-11 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-yellow-400"
+          >
+          <button
+            type="button"
+            class="password-toggle absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center text-zinc-500 hover:text-yellow-400"
+            data-target="id_password"
+            aria-label="Show password"
+            aria-pressed="false"
+          >
+            <svg class="icon-show h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+            <svg class="icon-hide hidden h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3 3l18 18M10.5 10.7a3 3 0 0 0 4.2 4.2M9.9 5.6A10.5 10.5 0 0 1 12 5c6.5 0 10 7 10 7a18.4 18.4 0 0 1-4.2 4.7M6.1 6.3A18.5 18.5 0 0 0 2 12s3.5 7 10 7c1.1 0 2.1-.2 3.1-.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <button type="submit" class="w-full rounded-md border border-yellow-400 bg-yellow-400 px-3 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
+          Sign in
+        </button>
+      </form>
+
+      <p class="mt-6 text-sm text-zinc-500">
+        New here?
+        <a href="{% url 'signup' %}" class="text-yellow-400 hover:text-yellow-300">Create an account</a>
+      </p>
+    </div>
+  </main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.querySelectorAll('.password-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var input = document.getElementById(btn.getAttribute('data-target'));
+      if (!input) return;
+      var show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+      btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      btn.querySelector('.icon-show').classList.toggle('hidden', show);
+      btn.querySelector('.icon-hide').classList.toggle('hidden', !show);
+    });
+  });
+</script>
+{% endblock %}

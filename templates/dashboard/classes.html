@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}Classes · Kora{% endblock %}
+
+{% block page_title %}Classes{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">Classes</span>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">Classes</h2>
+        <p class="mt-2 text-sm text-zinc-400">Manage grades, streams, and class teachers.</p>
+      </div>
+      <button
+        type="button"
+        id="open-grade-create-modal"
+        class="shrink-0 rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+      >
+        Add class
+      </button>
+    </div>
+
+    {% if grade_cards %}
+      <div class="space-y-4">
+        {% for card in grade_cards %}
+          <section class="overflow-hidden rounded-md border border-zinc-800 bg-black">
+            <header class="flex items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3">
+              <h3 class="text-base font-semibold text-zinc-100">{{ card.grade.name }}</h3>
+              <button
+                type="button"
+                class="open-grade-edit-modal text-xs text-zinc-500 hover:text-yellow-400"
+                data-slug="{{ card.grade.slug }}"
+                data-name="{{ card.grade.name }}"
+                data-order="{{ card.grade.order }}"
+              >Edit</button>
+            </header>
+
+            {% if card.stream_forms %}
+              <ul class="divide-y divide-zinc-800">
+                {% for item in card.stream_forms %}
+                  <li class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="flex min-w-0 items-center gap-3">
+                      <p class="truncate text-sm font-medium text-zinc-100">{{ item.stream.name }}</p>
+                      <a
+                        href="{% url 'dashboard:stream_roster' item.stream.slug %}"
+                        class="shrink-0 text-xs text-yellow-400 hover:text-yellow-300"
+                      >Roster</a>
+                    </div>
+                    {% include "dashboard/partials/stream_teacher_form.html" with stream=item.stream form=item.form saved=False %}
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <p class="text-sm text-zinc-500">No streams</p>
+                {% include "dashboard/partials/grade_teacher_form.html" with grade=card.grade form=card.grade_teacher_form saved=False %}
+              </div>
+            {% endif %}
+
+            <div class="border-t border-zinc-800 px-4 py-2.5">
+              <form method="post" action="{% url 'dashboard:stream_create' card.grade.slug %}" class="flex gap-2" hx-boost="false">
+                {% csrf_token %}
+                {{ card.stream_create_form.name }}
+                <button type="submit" class="shrink-0 rounded-md border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400">
+                  Add stream
+                </button>
+              </form>
+            </div>
+          </section>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="rounded-md border border-zinc-800 bg-black px-4 py-8 text-center text-sm text-zinc-500">
+        No classes yet.
+        <button type="button" id="open-grade-create-modal-empty" class="text-yellow-400 hover:text-yellow-300">Add your first class</button>.
+      </div>
+    {% endif %}
+  </div>
+
+  <div
+    id="grade-backdrop"
+    class="{% if not show_grade_modal %}hidden{% endif %} fixed inset-0 z-50 bg-black/80"
+    aria-hidden="true"
+  ></div>
+  <aside
+    id="grade-panel"
+    class="{% if not show_grade_modal %}translate-x-full{% endif %} fixed inset-y-0 right-0 z-50 w-full max-w-md border-l border-zinc-800 bg-zinc-950 transition-transform duration-200"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="grade-modal-title"
+  >
+    <div class="flex h-14 items-center justify-between border-b border-zinc-800 px-4">
+      <h3 id="grade-modal-title" class="text-sm font-semibold text-zinc-100">
+        {% if grade_modal_mode == 'edit' %}Edit class{% else %}Add class{% endif %}
+      </h3>
+      <button type="button" id="close-grade-modal" class="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-900 hover:text-yellow-400" aria-label="Close">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <form method="post" action="{% url 'dashboard:classes' %}" class="space-y-5 p-4" hx-boost="false" id="grade-modal-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" id="grade-modal-action" value="{% if grade_modal_mode == 'edit' %}edit_grade{% else %}create_grade{% endif %}">
+      <input type="hidden" name="grade_slug" id="grade-modal-slug" value="{% if editing_grade %}{{ editing_grade.slug }}{% endif %}">
+      {% if grade_form.non_field_errors %}
+        <div class="rounded-md border border-red-500 px-3 py-2 text-sm text-red-400">{{ grade_form.non_field_errors }}</div>
+      {% endif %}
+      <div>
+        <label for="{{ grade_form.name.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Name</label>
+        {{ grade_form.name }}
+        {% if grade_form.name.errors %}
+          <p class="mt-1 text-xs text-red-400">{{ grade_form.name.errors|striptags }}</p>
+        {% endif %}
+      </div>
+      <div>
+        <label for="{{ grade_form.order.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Order</label>
+        {{ grade_form.order }}
+        {% if grade_form.order.errors %}
+          <p class="mt-1 text-xs text-red-400">{{ grade_form.order.errors|striptags }}</p>
+        {% endif %}
+      </div>
+      <button type="submit" id="grade-modal-submit" class="w-full rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
+        {% if grade_modal_mode == 'edit' %}Save changes{% else %}Create class{% endif %}
+      </button>
+    </form>
+  </aside>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    const panel = document.getElementById('grade-panel');
+    const backdrop = document.getElementById('grade-backdrop');
+    const closeBtn = document.getElementById('close-grade-modal');
+    const title = document.getElementById('grade-modal-title');
+    const actionInput = document.getElementById('grade-modal-action');
+    const slugInput = document.getElementById('grade-modal-slug');
+    const submitBtn = document.getElementById('grade-modal-submit');
+    const nameInput = document.getElementById('{{ grade_form.name.id_for_label }}');
+    const orderInput = document.getElementById('{{ grade_form.order.id_for_label }}');
+    if (!panel || !backdrop || !closeBtn) return;
+
+    function openModal() {
+      panel.classList.remove('translate-x-full');
+      backdrop.classList.remove('hidden');
+      if (window.KoraOverlay) window.KoraOverlay.lock();
+    }
+    function closeModal() {
+      panel.classList.add('translate-x-full');
+      backdrop.classList.add('hidden');
+      if (window.KoraOverlay) window.KoraOverlay.unlock();
+    }
+    function openCreate() {
+      title.textContent = 'Add class';
+      actionInput.value = 'create_grade';
+      slugInput.value = '';
+      submitBtn.textContent = 'Create class';
+      if (nameInput) nameInput.value = '';
+      if (orderInput) orderInput.value = '0';
+      openModal();
+      if (nameInput) nameInput.focus();
+    }
+    function openEdit(btn) {
+      title.textContent = 'Edit class';
+      actionInput.value = 'edit_grade';
+      slugInput.value = btn.dataset.slug || '';
+      submitBtn.textContent = 'Save changes';
+      if (nameInput) nameInput.value = btn.dataset.name || '';
+      if (orderInput) orderInput.value = btn.dataset.order || '0';
+      openModal();
+      if (nameInput) nameInput.focus();
+    }
+
+    const createBtn = document.getElementById('open-grade-create-modal');
+    const createEmptyBtn = document.getElementById('open-grade-create-modal-empty');
+    if (createBtn) createBtn.addEventListener('click', openCreate);
+    if (createEmptyBtn) createEmptyBtn.addEventListener('click', openCreate);
+    document.querySelectorAll('.open-grade-edit-modal').forEach(function (btn) {
+      btn.addEventListener('click', function () { openEdit(btn); });
+    });
+    closeBtn.addEventListener('click', closeModal);
+    backdrop.addEventListener('click', closeModal);
+    {% if show_grade_modal %}
+    openModal();
+    {% endif %}
+  })();
+</script>
+{% endblock %}

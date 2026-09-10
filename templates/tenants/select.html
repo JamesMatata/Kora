@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Select school · Kora{% endblock %}
+
+{% block page_title %}Select school{% endblock %}
+
+{% block breadcrumbs %}
+  <span class="text-zinc-300">Workspaces</span>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">Choose a school</h2>
+        <p class="mt-2 text-sm text-zinc-400">Your roles are scoped per school. Select a workspace to continue.</p>
+      </div>
+      <a
+        href="{% url 'tenants:create' %}"
+        class="inline-flex shrink-0 items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+      >
+        + Create New School
+      </a>
+    </div>
+
+    {% if memberships %}
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {% for membership in memberships %}
+          <form method="post" action="{% url 'tenants:switch' membership.school_id %}" hx-boost="false">
+            {% csrf_token %}
+            <button
+              type="submit"
+              class="flex h-full w-full flex-col rounded-md border border-zinc-800 bg-black p-4 text-left hover:border-yellow-400"
+            >
+              <span class="text-lg font-semibold text-zinc-100">{{ membership.school.name }}</span>
+              <span class="mt-1 font-mono text-[11px] uppercase tracking-wider text-zinc-500">{{ membership.school.code }}</span>
+              <span class="mt-4 inline-block rounded-md border border-yellow-400 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-yellow-400">
+                {{ membership.role_label }}
+              </span>
+            </button>
+          </form>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="rounded-md border border-zinc-800 bg-black px-4 py-10 text-center">
+        <p class="text-sm text-zinc-400">You are not a member of any school yet.</p>
+        {% if pending_invitation_count %}
+          <p class="mt-2 text-sm text-zinc-500">
+            You have {{ pending_invitation_count }} pending invitation{{ pending_invitation_count|pluralize }}.
+          </p>
+          <a href="{% url 'tenants:inbox' %}" class="mt-4 inline-block rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300">
+            Open inbox
+          </a>
+        {% else %}
+          <a href="{% url 'tenants:create' %}" class="mt-4 inline-block rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300">
+            + Create New School
+          </a>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    {% if memberships and pending_invitation_count %}
+      <div class="rounded-md border border-zinc-800 bg-black px-4 py-3 text-sm text-zinc-400">
+        You also have {{ pending_invitation_count }} pending invitation{{ pending_invitation_count|pluralize }}.
+        <a href="{% url 'tenants:inbox' %}" class="ml-1 text-yellow-400 hover:text-yellow-300">Review in inbox</a>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}
