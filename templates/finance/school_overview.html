@@ -12,6 +12,11 @@
 
 {% block content %}
   <div class="space-y-6">
+    <div class="rounded-md border border-yellow-400/30 bg-yellow-400/5 px-4 py-3 text-sm text-zinc-300">
+      Prefer <a href="{% url 'finance:term_fee_plans' %}" class="font-semibold text-yellow-400 hover:underline">term fee plans</a>
+      and the <a href="{% url 'dashboard:fee_ledger' %}" class="font-semibold text-yellow-400 hover:underline">fee ledger</a>
+      for invoicing and M-Pesa collections. The charge tools below are legacy one-off fees.
+    </div>
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h2 class="text-2xl font-semibold text-zinc-100">School finance</h2>
@@ -19,13 +24,28 @@
           Fee due, collections, and arrears across all class streams.
         </p>
       </div>
-      <button
-        type="button"
-        id="open-charge-modal"
-        class="shrink-0 rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
-      >
-        New charge
-      </button>
+      <div class="flex shrink-0 flex-wrap gap-3">
+        <a
+          href="{% url 'finance:term_fee_plans' %}"
+          class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+        >
+          Fee plans
+        </a>
+        <a
+          href="{% url 'dashboard:fee_ledger' %}"
+          class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+        >
+          Fee ledger
+        </a>
+        <button
+          type="button"
+          id="open-charge-modal"
+          class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-400 hover:border-zinc-600"
+          title="Legacy one-off charges"
+        >
+          Legacy charge
+        </button>
+      </div>
     </div>
 
     <div class="grid gap-3 sm:grid-cols-3">

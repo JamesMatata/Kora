@@ -149,8 +149,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Public site origin used in absolute callback URLs (no trailing slash).
 SITE_DOMAIN = env('SITE_DOMAIN', default='http://127.0.0.1:8000')
+BACKUP_DIR = env('BACKUP_DIR', default=str(BASE_DIR / 'backups'))
 
-# Safaricom Daraja sandbox defaults (per-school encrypted keys take precedence).
+# Safaricom Daraja (per-school encrypted keys take precedence).
+# DARAJA_ENVIRONMENT: sandbox | production (schools can override in Settings).
+DARAJA_ENVIRONMENT = env('DARAJA_ENVIRONMENT', default='sandbox')
 DARAJA_CONSUMER_KEY = env('DARAJA_CONSUMER_KEY', default='')
 DARAJA_CONSUMER_SECRET = env('DARAJA_CONSUMER_SECRET', default='')
 DARAJA_PASSKEY = env('DARAJA_PASSKEY', default='')
@@ -164,6 +167,10 @@ TWILIO_DEFAULT_SCHOOL_CODE = env(
     'TWILIO_DEFAULT_SCHOOL_CODE',
     default='greenfields-academy',
 )
+# Fee reminder delivery (Kitabu-style): Nairobi local day + quiet hours.
+WHATSAPP_LOCAL_TZ = env('WHATSAPP_LOCAL_TZ', default='Africa/Nairobi')
+WHATSAPP_QUIET_HOUR_START = int(env('WHATSAPP_QUIET_HOUR_START', default='20'))
+WHATSAPP_QUIET_HOUR_END = int(env('WHATSAPP_QUIET_HOUR_END', default='8'))
 
 # Max amount above invoice balance allowed for STK / agent payments (KES).
 FEE_OVERPAYMENT_ALLOWANCE = env('FEE_OVERPAYMENT_ALLOWANCE', default='0')

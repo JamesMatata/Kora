@@ -101,3 +101,84 @@ class SchoolFeeChargeForm(FeeChargeForm):
         if scope == self.SCOPE_CLASSES and not streams:
             raise ValidationError('Select at least one class.')
         return cleaned
+
+
+class TermFeePlanForm(forms.Form):
+    """Create a term fee plan with one or more vote-head amounts."""
+
+    name = forms.CharField(
+        max_length=160,
+        widget=forms.TextInput(
+            attrs={
+                'class': INPUT_CLASS.replace('bg-black', 'bg-zinc-950'),
+                'placeholder': 'e.g. Grade 4 Term 1 fees',
+            }
+        ),
+    )
+    term = forms.CharField(
+        max_length=64,
+        widget=forms.TextInput(
+            attrs={
+                'class': INPUT_CLASS.replace('bg-black', 'bg-zinc-950'),
+                'placeholder': 'Term 1 2026',
+            }
+        ),
+    )
+    grade_level = forms.ModelChoiceField(
+        queryset=None,
+        required=False,
+        empty_label='All grades',
+        widget=forms.Select(attrs={'class': INPUT_CLASS.replace('bg-black', 'bg-zinc-950')}),
+    )
+    due_date = forms.DateField(
+        widget=forms.DateInput(
+            attrs={
+                'class': INPUT_CLASS.replace('bg-black', 'bg-zinc-950'),
+                'type': 'date',
+            }
+        ),
+    )
+
+    def __init__(self, *args, school=None, **kwargs):
+        from academics.models import GradeLevel
+        from finance.models import FeeCategory
+        from finance.services.invoicing import ensure_default_fee_categories
+
+        super().__init__(*args, **kwargs)
+        self.school = school
+        if school is not None:
+            ensure_default_fee_categories(school)
+            self.fields['grade_level'].queryset = GradeLevel.objects.filter(
+                school=school
+            ).order_by('order', 'name')
+            self.categories = list(
+                FeeCategory.objects.filter(school=school).order_by('name')
+            )
+        else:
+            self.fields['grade_level'].queryset = GradeLevel.objects.none()
+            self.categories = []
+
+    def clean(self):
+        cleaned = super().clean()
+        cleaned['name'] = (cleaned.get('name') or '').strip()
+        cleaned['term'] = (cleaned.get('term') or '').strip()
+
+        line_items = []
+        for category in self.categories:
+            raw = (self.data.get(f'amount_{category.pk}') or '').strip()
+            if not raw:
+                continue
+            try:
+                amount = Decimal(raw).quantize(Decimal('0.01'))
+            except (InvalidOperation, TypeError) as exc:
+                raise ValidationError(
+                    f'Invalid amount for {category.name}.'
+                ) from exc
+            if amount < 0:
+                raise ValidationError(f'{category.name} cannot be negative.')
+            if amount > 0:
+                line_items.append((category, amount))
+        if not line_items:
+            raise ValidationError('Enter at least one vote-head amount greater than 0.')
+        cleaned['line_items'] = line_items
+        return cleaned

@@ -2,7 +2,11 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
-from finance.views import daraja_callback
+from finance.views import (
+    daraja_c2b_confirmation,
+    daraja_c2b_validation,
+    daraja_callback,
+)
 from communications.views import twilio_whatsapp_webhook
 from tenants.views import LandingView, SignUpView
 
@@ -26,6 +30,16 @@ urlpatterns = [
         'api/v1/finance/daraja/callback/',
         daraja_callback,
         name='daraja_callback',
+    ),
+    path(
+        'api/v1/finance/daraja/c2b/validation/',
+        daraja_c2b_validation,
+        name='daraja_c2b_validation',
+    ),
+    path(
+        'api/v1/finance/daraja/c2b/confirmation/',
+        daraja_c2b_confirmation,
+        name='daraja_c2b_confirmation',
     ),
     path(
         'api/v1/communications/twilio/webhook/',

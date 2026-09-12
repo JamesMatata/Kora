@@ -9,6 +9,8 @@ from finance.models import (
     PaymentPromise,
     PaymentTransaction,
     StudentFee,
+    TermFeeLineItem,
+    TermFeePlan,
 )
 
 
@@ -193,3 +195,26 @@ class PaymentPromiseAdmin(admin.ModelAdmin):
     search_fields = ('invoice__student__admission_number',)
     autocomplete_fields = ('invoice', 'school')
     readonly_fields = ('created_at',)
+
+
+class TermFeeLineItemInline(admin.TabularInline):
+    model = TermFeeLineItem
+    extra = 0
+    autocomplete_fields = ('category', 'school')
+
+
+@admin.register(TermFeePlan)
+class TermFeePlanAdmin(admin.ModelAdmin):
+    list_display = (
+        'name',
+        'term',
+        'grade_level',
+        'due_date',
+        'is_active',
+        'school',
+        'created_at',
+    )
+    list_filter = ('is_active', 'school', 'term')
+    search_fields = ('name', 'term')
+    autocomplete_fields = ('grade_level', 'created_by', 'school')
+    inlines = (TermFeeLineItemInline,)

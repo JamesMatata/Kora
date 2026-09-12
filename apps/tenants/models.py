@@ -31,6 +31,19 @@ class School(models.Model):
     mpesa_consumer_key = models.TextField(blank=True)
     mpesa_consumer_secret = models.TextField(blank=True)
     mpesa_passkey = models.TextField(blank=True)
+    mpesa_environment = models.CharField(
+        max_length=16,
+        blank=True,
+        choices=(
+            ('', 'Platform default'),
+            ('sandbox', 'Sandbox'),
+            ('production', 'Production'),
+        ),
+        help_text=(
+            'Daraja API host. Blank uses DARAJA_ENVIRONMENT from the server. '
+            'Use production only with live Safaricom credentials.'
+        ),
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -105,6 +118,15 @@ class SchoolMembership(models.Model):
         default=False,
         help_text='Can manage rosters and attendance for assigned classes.',
     )
+    is_bursar = models.BooleanField(
+        default=False,
+        help_text='Can manage fees, Paybill settings, invoices, and collections.',
+    )
+    phone_number = models.CharField(
+        max_length=16,
+        blank=True,
+        help_text='Optional staff WhatsApp for ops reminders (E.164 preferred).',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -121,19 +143,22 @@ class SchoolMembership(models.Model):
 
     @property
     def role_label(self):
-        if self.is_admin and self.is_teacher:
-            return 'Admin & Teacher'
+        parts = []
         if self.is_admin:
-            return 'Admin'
+            parts.append('Admin')
+        if self.is_bursar:
+            parts.append('Bursar')
         if self.is_teacher:
-            return 'Class Teacher'
-        return 'Staff'
+            parts.append('Teacher')
+        return ' & '.join(parts) if parts else 'Staff'
 
     def clean(self):
         super().clean()
 
-        if not self.is_admin and not self.is_teacher:
-            raise ValidationError('Membership must grant Admin and/or Teacher role.')
+        if not self.is_admin and not self.is_teacher and not self.is_bursar:
+            raise ValidationError(
+                'Membership must grant Admin, Teacher, and/or Bursar role.'
+            )
 
         if self.is_admin and self.school_id:
             active_admins = SchoolMembership.objects.filter(
@@ -177,6 +202,7 @@ class StaffInvitation(models.Model):
     )
     role_admin = models.BooleanField(default=False)
     role_teacher = models.BooleanField(default=False)
+    role_bursar = models.BooleanField(default=False)
     token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     expires_at = models.DateTimeField()
     status = models.CharField(
@@ -214,7 +240,7 @@ class StaffInvitation(models.Model):
 
     def clean(self):
         super().clean()
-        if not self.role_admin and not self.role_teacher:
+        if not self.role_admin and not self.role_teacher and not self.role_bursar:
             raise ValidationError('Invitation must grant at least one role.')
 
         if self.role_admin and self.school_id and self.status == self.Status.PENDING:
@@ -290,3 +316,73 @@ class TenantAwareModel(models.Model):
 
     class Meta:
         abstract = True
+
+
+class AuditEvent(TenantAwareModel):
+    """Append-only audit trail for money and role changes."""
+
+    class Category(models.TextChoices):
+        PAYMENT = 'PAYMENT', 'Payment'
+        ROLE = 'ROLE', 'Role'
+        SETTINGS = 'SETTINGS', 'Settings'
+        OTHER = 'OTHER', 'Other'
+
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='audit_events',
+    )
+    category = models.CharField(
+        max_length=16,
+        choices=Category.choices,
+        default=Category.OTHER,
+    )
+    action = models.CharField(max_length=64)
+    object_type = models.CharField(max_length=64, blank=True)
+    object_id = models.CharField(max_length=64, blank=True)
+    summary = models.CharField(max_length=255)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['school', 'category', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f'{self.category}: {self.summary}'
+
+
+class OpsJobRun(models.Model):
+    """Last-run telemetry for scheduled manage.py jobs (reminders, backups)."""
+
+    class Status(models.TextChoices):
+        OK = 'OK', 'OK'
+        FAILED = 'FAILED', 'Failed'
+
+    job_name = models.CharField(max_length=64, db_index=True)
+    school = models.ForeignKey(
+        School,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='ops_job_runs',
+        help_text='Null = platform-wide job (e.g. database backup).',
+    )
+    status = models.CharField(max_length=16, choices=Status.choices)
+    summary = models.CharField(max_length=255, blank=True)
+    detail = models.TextField(blank=True)
+    started_at = models.DateTimeField()
+    finished_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-finished_at']
+        indexes = [
+            models.Index(fields=['job_name', '-finished_at']),
+        ]
+
+    def __str__(self):
+        return f'{self.job_name} · {self.status} · {self.finished_at}'

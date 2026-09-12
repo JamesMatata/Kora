@@ -31,6 +31,16 @@ class ParentContact(TenantAwareModel):
         blank=True,
         help_text='When this parent was last contacted by an outbound bot reminder.',
     )
+    reminders_paused_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When fee reminders were paused (STOP / staff). Null = reminders allowed.',
+    )
+    reminders_paused_reason = models.CharField(
+        max_length=32,
+        blank=True,
+        help_text='parent_stop | staff_pause',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -42,6 +52,10 @@ class ParentContact(TenantAwareModel):
                 name='communications_unique_parent_phone_per_school',
             ),
         ]
+
+    @property
+    def reminders_paused(self) -> bool:
+        return self.reminders_paused_at is not None
 
     def __str__(self):
         label = self.parent_name or self.phone_number

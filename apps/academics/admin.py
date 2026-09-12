@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from academics.models import AcademicYear, ClassStream, GradeLevel, Student
+from academics.models import (
+    AcademicYear,
+    AttendanceRecord,
+    ClassStream,
+    GradeLevel,
+    Student,
+    WeeklyParentUpdate,
+    WeeklyStudentFeedback,
+)
 
 
 @admin.register(AcademicYear)
@@ -9,6 +17,46 @@ class AcademicYearAdmin(admin.ModelAdmin):
     list_filter = ('is_current', 'school')
     search_fields = ('name', 'school__name', 'school__code')
 
+
+@admin.register(AttendanceRecord)
+class AttendanceRecordAdmin(admin.ModelAdmin):
+    list_display = (
+        'date',
+        'student',
+        'stream',
+        'status',
+        'parent_notified_at',
+        'school',
+    )
+    list_filter = ('status', 'date', 'school')
+    search_fields = (
+        'student__admission_number',
+        'student__first_name',
+        'student__last_name',
+    )
+    autocomplete_fields = ('student', 'stream', 'marked_by', 'school')
+    date_hierarchy = 'date'
+
+
+@admin.register(WeeklyParentUpdate)
+class WeeklyParentUpdateAdmin(admin.ModelAdmin):
+    list_display = ('stream', 'week_start', 'status', 'sent_at', 'school')
+    list_filter = ('status', 'school')
+    search_fields = ('stream__name', 'stream__slug')
+    autocomplete_fields = ('stream', 'created_by', 'sent_by', 'school')
+    date_hierarchy = 'week_start'
+
+
+@admin.register(WeeklyStudentFeedback)
+class WeeklyStudentFeedbackAdmin(admin.ModelAdmin):
+    list_display = ('student', 'update', 'sent_at', 'skipped_reason', 'school')
+    list_filter = ('skipped_reason', 'school')
+    search_fields = (
+        'student__admission_number',
+        'student__first_name',
+        'student__last_name',
+    )
+    autocomplete_fields = ('update', 'student', 'school')
 
 @admin.register(GradeLevel)
 class GradeLevelAdmin(admin.ModelAdmin):

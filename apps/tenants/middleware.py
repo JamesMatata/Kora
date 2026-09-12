@@ -32,9 +32,11 @@ def _resolve_role_mode(request, membership):
     """
     Dual memberships can focus as admin or teacher via session.
     Single-role memberships are locked to that role.
+    Bursar is a capability flag and does not use the admin/teacher switch.
     """
     is_admin = bool(membership.is_admin)
     is_teacher = bool(membership.is_teacher)
+    is_bursar = bool(membership.is_bursar)
     can_switch = is_admin and is_teacher
 
     if can_switch:
@@ -48,19 +50,25 @@ def _resolve_role_mode(request, membership):
     elif is_teacher:
         mode = 'teacher'
         request.session.pop('active_role_mode', None)
+    elif is_bursar:
+        mode = 'bursar'
+        request.session.pop('active_role_mode', None)
     else:
         mode = 'staff'
         request.session.pop('active_role_mode', None)
 
     request.can_switch_role = can_switch
     request.role_mode = mode
-    # Capability flags (what the membership allows)
     request.is_current_school_admin = is_admin
     request.is_current_school_teacher = is_teacher
-    # Effective UI flags (what the current mode shows)
+    request.is_current_school_bursar = is_bursar
     request.acting_as_admin = mode == 'admin' and is_admin
     request.acting_as_teacher = mode == 'teacher' and is_teacher
-
+    # Bursar tools are always available when membership grants bursar,
+    # including when an admin+bursar is in admin mode.
+    request.acting_as_bursar = is_bursar or (
+        mode == 'admin' and is_admin
+    )
 
 class TenantMiddleware:
     """
@@ -76,10 +84,12 @@ class TenantMiddleware:
         request.membership = None
         request.is_current_school_admin = False
         request.is_current_school_teacher = False
+        request.is_current_school_bursar = False
         request.can_switch_role = False
         request.role_mode = None
         request.acting_as_admin = False
         request.acting_as_teacher = False
+        request.acting_as_bursar = False
         request.user_memberships = []
 
         redirect_response = self._bind_tenant(request)

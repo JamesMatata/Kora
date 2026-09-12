@@ -23,8 +23,8 @@ TOKEN_CACHE_SECONDS = 3000  # 50 minutes
 DEFAULT_TIMEOUT = 30
 SANDBOX_SHORTCODE = '174379'
 
-OAUTH_URL = 'https://sandbox.safaricom.co.ke/oauth/v1/generate'
-STK_PUSH_URL = 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
+SANDBOX_HOST = 'https://sandbox.safaricom.co.ke'
+PRODUCTION_HOST = 'https://api.safaricom.co.ke'
 
 
 class DarajaError(Exception):
@@ -37,6 +37,42 @@ class DarajaCredentials:
     consumer_secret: str
     passkey: str
     paybill_number: str
+
+
+@dataclass(frozen=True)
+class DarajaEndpoints:
+    environment: str
+    oauth_url: str
+    stk_push_url: str
+    c2b_register_url: str
+
+
+def resolve_daraja_environment(school=None) -> str:
+    """
+    sandbox | production.
+
+    Per-school mpesa_environment wins when set; otherwise DARAJA_ENVIRONMENT.
+    """
+    school_env = ''
+    if school is not None:
+        school_env = (getattr(school, 'mpesa_environment', None) or '').strip().lower()
+    if school_env in ('sandbox', 'production'):
+        return school_env
+    platform = (getattr(settings, 'DARAJA_ENVIRONMENT', '') or 'sandbox').strip().lower()
+    if platform in ('sandbox', 'production', 'live'):
+        return 'production' if platform == 'live' else platform
+    return 'sandbox'
+
+
+def get_daraja_endpoints(school=None) -> DarajaEndpoints:
+    environment = resolve_daraja_environment(school)
+    host = PRODUCTION_HOST if environment == 'production' else SANDBOX_HOST
+    return DarajaEndpoints(
+        environment=environment,
+        oauth_url=f'{host}/oauth/v1/generate',
+        stk_push_url=f'{host}/mpesa/stkpush/v1/processrequest',
+        c2b_register_url=f'{host}/mpesa/c2b/v1/registerurl',
+    )
 
 
 def normalize_msisdn(phone_number: str) -> str:
@@ -56,7 +92,7 @@ def normalize_msisdn(phone_number: str) -> str:
 
 def resolve_credentials(school) -> DarajaCredentials:
     """
-    Prefer school-encrypted Daraja keys; fall back to project .env sandbox keys.
+    Prefer school-encrypted Daraja keys; fall back to project-level .env keys.
     """
     school_creds = school.get_mpesa_credentials()
     consumer_key = school_creds['consumer_key'] or getattr(
@@ -95,7 +131,8 @@ def resolve_credentials(school) -> DarajaCredentials:
 
 
 def _token_cache_key(school) -> str:
-    return f'daraja_token_{school.id}'
+    env_name = resolve_daraja_environment(school)
+    return f'daraja_token_{env_name}_{school.id}'
 
 
 def get_access_token(school, *, session: requests.Session | None = None) -> str:
@@ -106,10 +143,11 @@ def get_access_token(school, *, session: requests.Session | None = None) -> str:
         return cached
 
     creds = resolve_credentials(school)
+    endpoints = get_daraja_endpoints(school)
     http = session or requests
     try:
         response = http.get(
-            OAUTH_URL,
+            endpoints.oauth_url,
             params={'grant_type': 'client_credentials'},
             auth=(creds.consumer_key, creds.consumer_secret),
             timeout=DEFAULT_TIMEOUT,
@@ -150,6 +188,84 @@ def _callback_url(school) -> str:
     return f'{domain}/api/v1/finance/daraja/callback/?tenant_id={school.id}'
 
 
+def _c2b_validation_url(school) -> str:
+    domain = getattr(settings, 'SITE_DOMAIN', '').rstrip('/')
+    if not domain:
+        raise DarajaError('SITE_DOMAIN is not configured.')
+    return (
+        f'{domain}/api/v1/finance/daraja/c2b/validation/'
+        f'?tenant_id={school.id}'
+    )
+
+
+def _c2b_confirmation_url(school) -> str:
+    domain = getattr(settings, 'SITE_DOMAIN', '').rstrip('/')
+    if not domain:
+        raise DarajaError('SITE_DOMAIN is not configured.')
+    return (
+        f'{domain}/api/v1/finance/daraja/c2b/confirmation/'
+        f'?tenant_id={school.id}'
+    )
+
+
+def register_c2b_urls(
+    school,
+    *,
+    response_type: str = 'Completed',
+    session: requests.Session | None = None,
+) -> tuple[bool, dict[str, Any]]:
+    """
+    Register C2B validation + confirmation URLs with Safaricom for this school.
+
+    Requires a publicly reachable SITE_DOMAIN (use ngrok locally).
+    """
+    creds = resolve_credentials(school)
+    endpoints = get_daraja_endpoints(school)
+    payload = {
+        'ShortCode': creds.paybill_number,
+        'ResponseType': response_type,
+        'ConfirmationURL': _c2b_confirmation_url(school),
+        'ValidationURL': _c2b_validation_url(school),
+    }
+    http = session or requests
+    try:
+        token = get_access_token(school, session=session)
+        response = http.post(
+            endpoints.c2b_register_url,
+            json=payload,
+            headers={
+                'Authorization': f'Bearer {token}',
+                'Content-Type': 'application/json',
+            },
+            timeout=DEFAULT_TIMEOUT,
+        )
+    except DarajaError as exc:
+        return False, {'error': str(exc), 'environment': endpoints.environment}
+    except requests.RequestException as exc:
+        logger.exception('C2B register network error school=%s', school.id)
+        return False, {'error': str(exc), 'environment': endpoints.environment}
+
+    try:
+        response_json = response.json() if response.content else {}
+    except ValueError:
+        response_json = {'raw': response.text[:500]}
+
+    response_json = {
+        **response_json,
+        'environment': endpoints.environment,
+        'register_url': endpoints.c2b_register_url,
+    }
+
+    if response.status_code != 200:
+        return False, response_json
+
+    # ResponseCode "0" means accepted.
+    code = str(response_json.get('ResponseCode', response_json.get('resultCode', '')))
+    if code in ('0', '00000000'):
+        return True, response_json
+    return False, response_json
+
+
 def initiate_stk_push(
     school,
     invoice: FeeInvoice,
@@ -167,6 +283,7 @@ def initiate_stk_push(
         raise DarajaError('Invoice does not belong to the given school.')
 
     creds = resolve_credentials(school)
+    endpoints = get_daraja_endpoints(school)
     msisdn = normalize_msisdn(phone_number)
     amount_int = int(Decimal(str(amount)))
     if amount_int < 1:
@@ -195,7 +312,7 @@ def initiate_stk_push(
         'PhoneNumber': msisdn,
         'CallBackURL': _callback_url(school),
         'AccountReference': f'ADM-{admission}'[:12],
-        'TransactionDesc': f'Fee {admission}'[:12],
+        'TransactionDesc': f'Fee {admission}'[:13],
     }
 
     response_json: dict[str, Any] = {}
@@ -203,7 +320,7 @@ def initiate_stk_push(
     try:
         token = get_access_token(school, session=session)
         response = http.post(
-            STK_PUSH_URL,
+            endpoints.stk_push_url,
             json=payload,
             headers={
                 'Authorization': f'Bearer {token}',
@@ -217,14 +334,20 @@ def initiate_stk_push(
         payment_tx.save(
             update_fields=['status', 'result_desc', 'updated_at']
         )
-        return False, payment_tx, {'error': str(exc)}
+        return False, payment_tx, {
+            'error': str(exc),
+            'environment': endpoints.environment,
+        }
     except requests.Timeout:
         payment_tx.status = PaymentTransaction.Status.FAILED_TIMEOUT
         payment_tx.result_desc = 'STK push request timed out.'
         payment_tx.save(
             update_fields=['status', 'result_desc', 'updated_at']
         )
-        return False, payment_tx, {'error': 'timeout'}
+        return False, payment_tx, {
+            'error': 'timeout',
+            'environment': endpoints.environment,
+        }
     except requests.RequestException as exc:
         logger.exception('Daraja STK network error for school=%s', school.id)
         payment_tx.status = PaymentTransaction.Status.FAILED_ERROR
@@ -232,12 +355,20 @@ def initiate_stk_push(
         payment_tx.save(
             update_fields=['status', 'result_desc', 'updated_at']
         )
-        return False, payment_tx, {'error': str(exc)}
+        return False, payment_tx, {
+            'error': str(exc),
+            'environment': endpoints.environment,
+        }
 
     try:
         response_json = response.json() if response.content else {}
     except ValueError:
         response_json = {'raw': response.text[:500]}
+
+    response_json = {
+        **response_json,
+        'environment': endpoints.environment,
+    }
 
     if response.status_code != 200:
         payment_tx.status = PaymentTransaction.Status.FAILED_ERROR

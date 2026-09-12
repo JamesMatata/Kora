@@ -20,12 +20,32 @@
           Search and filter student invoices, trigger STK pushes, and open WhatsApp conversations.
         </p>
       </div>
-      <a
-        href="{% url 'finance:overview' %}"
-        class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
-      >
-        School finance
-      </a>
+      <div class="flex flex-wrap gap-2">
+        <a
+          href="{% url 'dashboard:defaulter_report' %}"
+          class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+        >
+          Defaulters
+        </a>
+        <a
+          href="{% url 'dashboard:payments_export' %}"
+          class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+        >
+          Export payments
+        </a>
+        <a
+          href="{% url 'dashboard:students_export' %}"
+          class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+        >
+          Export students
+        </a>
+        <a
+          href="{% url 'finance:overview' %}"
+          class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+        >
+          School finance
+        </a>
+      </div>
     </div>
 
     <form
@@ -120,6 +140,7 @@
             <th class="px-4 py-3 font-medium">Class</th>
             <th class="px-4 py-3 font-medium">Term</th>
             <th class="px-4 py-3 font-medium">Billed</th>
+            <th class="px-4 py-3 font-medium">Discount</th>
             <th class="px-4 py-3 font-medium">Paid</th>
             <th class="px-4 py-3 font-medium">Balance</th>
             <th class="px-4 py-3 font-medium">Status</th>

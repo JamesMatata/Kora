@@ -19,6 +19,27 @@
       </div>
 
       {% if request.school %}
+        {% if weekly_update_streams %}
+          <div class="rounded-md border border-yellow-400/40 bg-yellow-400/10 px-4 py-3">
+            <p class="text-sm font-semibold text-yellow-400">Weekly parent updates due</p>
+            <p class="mt-1 text-sm text-zinc-300">
+              Friday after 4:00 pm — send this week’s attendance summaries before the weekend.
+            </p>
+            <ul class="mt-3 flex flex-wrap gap-2">
+              {% for stream in weekly_update_streams %}
+                <li>
+                  <a
+                    href="{% url 'dashboard:weekly_parent_update' stream.slug %}"
+                    class="inline-flex rounded-md border border-yellow-400 bg-yellow-400 px-3 py-1.5 text-sm font-semibold text-black hover:bg-yellow-300"
+                  >
+                    {{ stream }}
+                  </a>
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div class="rounded-md border border-zinc-800 bg-black p-4">
             <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">My Streams</p>
@@ -54,10 +75,16 @@
                       Open roster
                     </a>
                     <a
-                      href="{% url 'dashboard:stream_finance' card.stream.slug %}"
+                      href="{% url 'dashboard:stream_attendance' card.stream.slug %}"
                       class="rounded-md border border-zinc-800 px-3 py-1.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
                     >
-                      Finance
+                      Attendance
+                    </a>
+                    <a
+                      href="{% url 'dashboard:weekly_parent_update' card.stream.slug %}"
+                      class="rounded-md border border-zinc-800 px-3 py-1.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+                    >
+                      Weekly update
                     </a>
                   </div>
                 </li>
@@ -96,19 +123,32 @@
       {% if request.school %}
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div class="rounded-md border border-zinc-800 bg-black p-4">
-            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Total billed</p>
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+              Net billed · {{ finance_scope_label|default:"All time" }}
+            </p>
             <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ total_billed }}</p>
+            {% if total_discounts %}
+              <p class="mt-1 font-mono text-[10px] text-zinc-500">
+                Gross {{ total_billed_gross }} − discounts {{ total_discounts }}
+              </p>
+            {% endif %}
           </div>
           <div class="rounded-md border border-zinc-800 bg-black p-4">
-            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Collected</p>
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+              Collected · {{ finance_scope_label|default:"All time" }}
+            </p>
             <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ total_collected }}</p>
           </div>
           <div class="rounded-md border border-zinc-800 bg-black p-4">
-            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Outstanding</p>
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+              Outstanding · {{ finance_scope_label|default:"All time" }}
+            </p>
             <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ outstanding_balance }}</p>
           </div>
           <div class="rounded-md border border-zinc-800 bg-black p-4">
-            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Collection rate</p>
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+              Collection rate · {{ finance_scope_label|default:"All time" }}
+            </p>
             <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ collection_rate }}%</p>
           </div>
           <div class="rounded-md border border-zinc-800 bg-black p-4">

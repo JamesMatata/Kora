@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Weekly update · {{ stream }} · Kora{% endblock %}
+
+{% block page_title %}Weekly parent update{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  <a href="{% url 'dashboard:stream_roster' stream.slug %}" class="hover:text-yellow-400">{{ stream }}</a>
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">Weekly update</span>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">{{ stream }}</h2>
+        <p class="mt-2 max-w-2xl text-sm text-zinc-400">
+          Send one weekly attendance summary per student. Add an optional note;
+          Clarify polishes wording only. Parents who replied STOP are skipped.
+        </p>
+        <p class="mt-3 font-mono text-xs uppercase tracking-wider text-zinc-500">
+          Week {{ update.week_start|date:"d M" }} – {{ week_end|date:"d M Y" }}
+          · {{ update.get_status_display }}
+          {% if update.sent_at %} · Sent {{ update.sent_at|date:"d M Y H:i" }}{% endif %}
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a
+          href="{% url 'dashboard:stream_attendance' stream.slug %}"
+          class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+        >
+          Attendance
+        </a>
+        <a
+          href="{% url 'dashboard:stream_roster' stream.slug %}"
+          class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+        >
+          Roster
+        </a>
+      </div>
+    </div>
+
+    {% if not in_send_window and update.status != 'SENT' %}
+      <div class="rounded-md border border-zinc-800 bg-black px-4 py-3 text-sm text-zinc-400">
+        You can draft notes anytime. Sending opens Friday after 4:00 pm through Sunday (Nairobi time).
+      </div>
+    {% endif %}
+
+    <form method="post" id="weekly-update-form" class="space-y-4">
+      {% csrf_token %}
+      <div class="overflow-x-auto rounded-md border border-zinc-800">
+        <table class="min-w-full border-collapse text-left text-sm">
+          <thead class="bg-black">
+            <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+              <th class="px-4 py-3 font-medium">Student</th>
+              <th class="px-4 py-3 font-medium">Attendance</th>
+              <th class="px-4 py-3 font-medium">Teacher note</th>
+              <th class="px-4 py-3 font-medium">Delivery</th>
+            </tr>
+          </thead>
+          <tbody class="bg-zinc-950">
+            {% for line in lines %}
+              <tr class="border-b border-zinc-800 align-top">
+                <td class="px-4 py-3">
+                  <p class="font-medium text-zinc-100">{{ line.student.full_name }}</p>
+                  <p class="mt-0.5 font-mono text-[10px] uppercase text-zinc-500">{{ line.student.admission_number }}</p>
+                </td>
+                <td class="px-4 py-3 text-zinc-300">{{ line.attendance_summary }}</td>
+                <td class="px-4 py-3">
+                  <textarea
+                    name="note_{{ line.pk }}"
+                    rows="3"
+                    {% if update.status == 'SENT' %}readonly{% endif %}
+                    class="w-full min-w-[14rem] rounded-md border border-zinc-800 bg-black px-2 py-1.5 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+                    placeholder="Optional behaviour / learning note"
+                  >{{ line.teacher_note }}</textarea>
+                  {% if line.polished_note %}
+                    <p class="mt-2 text-xs text-zinc-500">Clarified preview (sent if present):</p>
+                    <p class="mt-1 text-sm text-zinc-300">{{ line.polished_note }}</p>
+                  {% endif %}
+                  {% if update.status != 'SENT' %}
+                    <button
+                      type="submit"
+                      name="action"
+                      value="polish"
+                      form="weekly-update-form"
+                      class="mt-2 rounded-md border border-zinc-800 px-2 py-1 text-xs font-semibold text-zinc-400 hover:border-yellow-400 hover:text-yellow-400"
+                      formaction="?line={{ line.pk }}"
+                      onclick="document.getElementById('line-id-field').value='{{ line.pk }}';"
+                    >
+                      Clarify note
+                    </button>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-3 font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+                  {% if line.sent_at %}
+                    Sent
+                  {% elif line.skipped_reason %}
+                    {{ line.skipped_reason }}
+                  {% else %}
+                    Draft
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="4" class="px-4 py-6 text-sm text-zinc-500">No active students in this stream.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <input type="hidden" name="line_id" id="line-id-field" value="">
+
+      <div class="flex flex-wrap gap-3">
+        <button
+          type="submit"
+          name="action"
+          value="save"
+          class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+        >
+          Save draft
+        </button>
+        {% if can_send %}
+          <button
+            type="submit"
+            name="action"
+            value="send"
+            class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+          >
+            Send WhatsApp updates
+          </button>
+        {% elif update.status != 'SENT' %}
+          <button
+            type="button"
+            disabled
+            class="cursor-not-allowed rounded-md border border-zinc-900 px-4 py-2 text-sm font-semibold text-zinc-600"
+            title="Available Friday after 4:00 pm Nairobi"
+          >
+            Send WhatsApp updates
+          </button>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+{% endblock %}

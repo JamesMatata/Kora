@@ -179,15 +179,26 @@ def get_student_fee_balance(school_id: str, admission_number: str) -> dict:
             return {'success': False, 'error': 'Tenant boundary violation.'}
 
         balance = invoice.balance
+        discount = invoice.discount_amount or Decimal('0.00')
+        net_billed = invoice.net_amount
         return {
             'student_name': student.full_name,
             'admission_number': student.admission_number,
             'total_billed': float(invoice.total_amount),
+            'discount_amount': float(discount),
+            'discount_note': (invoice.discount_note or '').strip(),
+            'net_billed': float(net_billed),
             'paid_amount': float(invoice.paid_amount),
             'balance': float(balance),
             'due_date': invoice.due_date.isoformat(),
             'status': invoice.status,
             'term': invoice.term,
+            'message': (
+                f'Outstanding balance is {float(balance):.2f} after '
+                f'bursary/waiver of {float(discount):.2f}.'
+                if discount > 0
+                else f'Outstanding balance is {float(balance):.2f}.'
+            ),
         }
     except ValueError as exc:
         return {'success': False, 'error': str(exc)}
@@ -243,20 +254,19 @@ def initiate_fee_payment(
                 'message': 'Amount must be greater than zero.',
             }
 
+        # Overpayment is allowed: excess clears other open invoices then
+        # becomes student fee credit (see finance.services.credits).
         balance = invoice.balance
-        allowance = _overpayment_allowance()
-        max_allowed = balance + allowance
-        if pay_amount > max_allowed:
-            return {
-                'success': False,
-                'checkout_request_id': '',
-                'amount': float(pay_amount),
-                'message': (
-                    f'Amount exceeds outstanding balance '
-                    f'({float(balance):.2f}) plus allowed overpayment '
-                    f'({float(allowance):.2f}).'
-                ),
-            }
+        note_extra = ''
+        if pay_amount > balance > 0:
+            note_extra = (
+                f' Amount is above this invoice balance ({float(balance):.2f}); '
+                f'any excess will clear other fees or be held as credit.'
+            )
+        elif pay_amount > balance:
+            note_extra = (
+                ' This invoice is already cleared; the amount will be held as credit.'
+            )
 
         ok, payment_tx, response_json = initiate_stk_push(
             school,
@@ -274,7 +284,8 @@ def initiate_fee_payment(
                     response_json.get('CustomerMessage')
                     or response_json.get('ResponseDescription')
                     or 'STK push sent. Ask the parent to enter their M-Pesa PIN.'
-                ),
+                )
+                + note_extra,
             }
         return {
             'success': False,
@@ -466,16 +477,13 @@ def flag_for_human_escalation(
             delivery_status=MessageLog.DeliveryStatus.SENT,
         )
 
-        # Dashboard inbox for admins
+        # Dashboard inbox for finance staff (admins + bursars)
         phone = session.parent_contact.phone_number
-        admin_ids = SchoolMembership.objects.filter(
-            school=school,
-            is_admin=True,
-            user__is_active=True,
-        ).values_list('user_id', flat=True)
-        from django.contrib.auth import get_user_model
+        from communications.services.staff_notify import finance_staff_users
+        from tenants.models import Notification
+        from tenants.services import notify_user
 
-        for user in get_user_model().objects.filter(pk__in=admin_ids):
+        for user in finance_staff_users(school):
             notify_user(
                 user=user,
                 school=school,

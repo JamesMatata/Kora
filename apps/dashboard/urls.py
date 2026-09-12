@@ -8,6 +8,7 @@ from communications.views import (
 from dashboard.views import (
     AssignClassTeacherView,
     AssignGradeTeacherView,
+    AuditLogView,
     ChatClaimView,
     ChatConsoleView,
     ChatMessagesPartialView,
@@ -17,6 +18,8 @@ from dashboard.views import (
     ClassStreamAssignmentView,
     ConversationConsoleView,
     DashboardOverviewView,
+    DefaulterExportView,
+    DefaulterReportView,
     ExecutiveReportDetailView,
     ExecutiveReportListView,
     FeeLedgerSearchView,
@@ -30,20 +33,51 @@ from dashboard.views import (
     GradeStudentEditView,
     GradeStudentImportTemplateView,
     GradeStudentImportView,
+    InvoiceDiscountView,
+    InvoiceManualPaymentView,
+    OnboardingChecklistView,
+    PaymentPromisesView,
+    PaymentReceiptPdfView,
+    PaymentReceiptView,
+    PaymentReceiptWhatsAppView,
+    PaymentsExportView,
+    PausedRemindersView,
+    SchoolSettingsView,
+    StreamAttendanceView,
     StreamCreateView,
+    StreamDeleteView,
+    StreamEditView,
     StreamFinanceView,
     StreamRosterView,
     StudentCreateView,
     StudentEditView,
+    StudentFeeStatementView,
     StudentImportTemplateView,
     StudentImportView,
+    StudentsExportView,
     TeacherManagementView,
+    WeeklyParentUpdateView,
 )
 
 app_name = 'dashboard'
 
 urlpatterns = [
     path('app/', DashboardOverviewView.as_view(), name='overview'),
+    path(
+        'dashboard/settings/',
+        SchoolSettingsView.as_view(),
+        name='school_settings',
+    ),
+    path(
+        'dashboard/onboarding/',
+        OnboardingChecklistView.as_view(),
+        name='onboarding',
+    ),
+    path(
+        'dashboard/audit/',
+        AuditLogView.as_view(),
+        name='audit_log',
+    ),
     path('dashboard/fees/', FeeLedgerView.as_view(), name='fee_ledger'),
     path(
         'dashboard/fees/search/',
@@ -54,6 +88,66 @@ urlpatterns = [
         'dashboard/fees/stk/',
         FeeLedgerStkPushView.as_view(),
         name='fee_ledger_stk',
+    ),
+    path(
+        'dashboard/fees/defaulters/',
+        DefaulterReportView.as_view(),
+        name='defaulter_report',
+    ),
+    path(
+        'dashboard/fees/promises/',
+        PaymentPromisesView.as_view(),
+        name='payment_promises',
+    ),
+    path(
+        'dashboard/fees/paused-reminders/',
+        PausedRemindersView.as_view(),
+        name='paused_reminders',
+    ),
+    path(
+        'dashboard/fees/defaulters/export/',
+        DefaulterExportView.as_view(),
+        name='defaulter_export',
+    ),
+    path(
+        'dashboard/exports/students/',
+        StudentsExportView.as_view(),
+        name='students_export',
+    ),
+    path(
+        'dashboard/exports/payments/',
+        PaymentsExportView.as_view(),
+        name='payments_export',
+    ),
+    path(
+        'dashboard/fees/students/<str:admission_number>/statement/',
+        StudentFeeStatementView.as_view(),
+        name='student_fee_statement',
+    ),
+    path(
+        'dashboard/fees/students/<str:admission_number>/discount/',
+        InvoiceDiscountView.as_view(),
+        name='invoice_discount',
+    ),
+    path(
+        'dashboard/fees/students/<str:admission_number>/manual-payment/',
+        InvoiceManualPaymentView.as_view(),
+        name='invoice_manual_payment',
+    ),
+    path(
+        'dashboard/fees/receipts/<int:payment_id>/',
+        PaymentReceiptView.as_view(),
+        name='payment_receipt',
+    ),
+    path(
+        'dashboard/fees/receipts/<int:payment_id>/pdf/',
+        PaymentReceiptPdfView.as_view(),
+        name='payment_receipt_pdf',
+    ),
+    path(
+        'dashboard/fees/receipts/<int:payment_id>/whatsapp/',
+        PaymentReceiptWhatsAppView.as_view(),
+        name='payment_receipt_whatsapp',
     ),
     path(
         'dashboard/broadcasts/',
@@ -135,6 +229,16 @@ urlpatterns = [
         name='stream_create',
     ),
     path(
+        'classes/streams/<slug:stream_slug>/edit/',
+        StreamEditView.as_view(),
+        name='stream_edit',
+    ),
+    path(
+        'classes/streams/<slug:stream_slug>/delete/',
+        StreamDeleteView.as_view(),
+        name='stream_delete',
+    ),
+    path(
         'classes/streams/<slug:stream_slug>/assign-teacher/',
         AssignClassTeacherView.as_view(),
         name='assign_teacher',
@@ -173,6 +277,16 @@ urlpatterns = [
         'streams/<slug:stream_slug>/roster/',
         StreamRosterView.as_view(),
         name='stream_roster',
+    ),
+    path(
+        'streams/<slug:stream_slug>/attendance/',
+        StreamAttendanceView.as_view(),
+        name='stream_attendance',
+    ),
+    path(
+        'streams/<slug:stream_slug>/weekly-update/',
+        WeeklyParentUpdateView.as_view(),
+        name='weekly_parent_update',
     ),
     path(
         'streams/<slug:stream_slug>/finance/',

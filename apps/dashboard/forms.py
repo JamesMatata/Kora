@@ -21,7 +21,7 @@ CHECKBOX_CLASS = 'h-4 w-4 border border-zinc-800 bg-black accent-yellow-400'
 class StaffInviteForm(forms.ModelForm):
     class Meta:
         model = StaffInvitation
-        fields = ('email', 'role_admin', 'role_teacher')
+        fields = ('email', 'role_admin', 'role_teacher', 'role_bursar')
         widgets = {
             'email': forms.EmailInput(
                 attrs={
@@ -32,6 +32,7 @@ class StaffInviteForm(forms.ModelForm):
             ),
             'role_admin': forms.CheckboxInput(attrs={'class': CHECKBOX_CLASS}),
             'role_teacher': forms.CheckboxInput(attrs={'class': CHECKBOX_CLASS}),
+            'role_bursar': forms.CheckboxInput(attrs={'class': CHECKBOX_CLASS}),
         }
 
     def __init__(self, *args, school=None, admin_slots_remaining=0, **kwargs):
@@ -46,13 +47,14 @@ class StaffInviteForm(forms.ModelForm):
         cleaned = super().clean()
         role_admin = cleaned.get('role_admin')
         role_teacher = cleaned.get('role_teacher')
+        role_bursar = cleaned.get('role_bursar')
 
         if self.fields['role_admin'].disabled:
             role_admin = False
             cleaned['role_admin'] = False
 
-        if not role_admin and not role_teacher:
-            raise ValidationError('Select at least one role: Admin or Teacher.')
+        if not role_admin and not role_teacher and not role_bursar:
+            raise ValidationError('Select at least one role: Admin, Teacher, or Bursar.')
 
         if role_admin and self.admin_slots_remaining <= 0:
             raise ValidationError(
@@ -94,6 +96,20 @@ class StaffMemberEditForm(forms.Form):
         required=False,
         widget=forms.CheckboxInput(attrs={'class': CHECKBOX_CLASS}),
     )
+    is_bursar = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={'class': CHECKBOX_CLASS}),
+    )
+    phone_number = forms.CharField(
+        max_length=16,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                'class': INPUT_CLASS,
+                'placeholder': '+2547… (optional WhatsApp for ops nudges)',
+            }
+        ),
+    )
     is_active = forms.BooleanField(
         required=False,
         widget=forms.CheckboxInput(attrs={'class': CHECKBOX_CLASS}),
@@ -118,6 +134,8 @@ class StaffMemberEditForm(forms.Form):
             self.fields['email'].initial = user.email
             self.fields['is_admin'].initial = membership.is_admin
             self.fields['is_teacher'].initial = membership.is_teacher
+            self.fields['is_bursar'].initial = membership.is_bursar
+            self.fields['phone_number'].initial = membership.phone_number
             self.fields['is_active'].initial = user.is_active
 
         # If this membership already has admin, they keep the slot when editing.
@@ -146,14 +164,17 @@ class StaffMemberEditForm(forms.Form):
         cleaned = super().clean()
         is_admin = cleaned.get('is_admin')
         is_teacher = cleaned.get('is_teacher')
+        is_bursar = cleaned.get('is_bursar')
         is_active = cleaned.get('is_active')
 
         if self.fields['is_admin'].disabled:
             is_admin = bool(self.membership and self.membership.is_admin)
             cleaned['is_admin'] = is_admin
 
-        if not is_admin and not is_teacher:
-            raise ValidationError('Select at least one role: Admin or Teacher.')
+        if not is_admin and not is_teacher and not is_bursar:
+            raise ValidationError(
+                'Select at least one role: Admin, Teacher, or Bursar.'
+            )
 
         was_active_admin = bool(
             self.membership
@@ -193,6 +214,8 @@ class StaffMemberEditForm(forms.Form):
 
         membership.is_admin = bool(self.cleaned_data.get('is_admin'))
         membership.is_teacher = bool(self.cleaned_data.get('is_teacher'))
+        membership.is_bursar = bool(self.cleaned_data.get('is_bursar'))
+        membership.phone_number = (self.cleaned_data.get('phone_number') or '').strip()
         membership.full_clean()
         membership.save()
         return membership
@@ -326,6 +349,8 @@ class StreamCreateForm(forms.ModelForm):
             grade_level=self.grade,
             name__iexact=name,
         )
+        if self.instance and self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
         if qs.exists():
             raise ValidationError('That stream already exists in this class.')
         return name
@@ -337,6 +362,27 @@ class StreamCreateForm(forms.ModelForm):
         if self.grade and self.grade.class_teacher_id and not stream.class_teacher_id:
             stream.class_teacher_id = self.grade.class_teacher_id
         if commit:
+            stream.full_clean()
+            stream.save()
+        return stream
+
+
+class StreamEditForm(StreamCreateForm):
+    """Rename an existing stream; regenerates slug when the name changes."""
+
+    def save(self, commit=True):
+        stream = super().save(commit=False)
+        old_name = None
+        if stream.pk:
+            old_name = (
+                ClassStream.objects.filter(pk=stream.pk)
+                .values_list('name', flat=True)
+                .first()
+            )
+        if commit:
+            if old_name and old_name != stream.name:
+                stream.slug = ''
+                stream.ensure_unique_slug()
             stream.full_clean()
             stream.save()
         return stream

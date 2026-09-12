@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Receipt · Kora{% endblock %}
+
+{% block page_title %}Payment receipt{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  <a href="{% url 'dashboard:fee_ledger' %}" class="hover:text-yellow-400">Fee ledger</a>
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">Receipt</span>
+{% endblock %}
+
+{% block content %}
+  <div class="no-print mb-6 space-y-3">
+    {% if parent_whatsapp_paused %}
+      <p class="rounded-md border border-yellow-400/40 bg-yellow-400/10 px-3 py-2 text-sm text-yellow-200">
+        This parent replied STOP — WhatsApp receipts are blocked until reminders are resumed.
+      </p>
+    {% elif receipt_whatsapp_sent_at %}
+      <p class="text-sm text-zinc-400">
+        WhatsApp receipt last sent {{ receipt_whatsapp_sent_at|date:"d M Y H:i" }}.
+        Resend will force another message.
+      </p>
+    {% endif %}
+    <div class="flex flex-wrap gap-2">
+      <button
+        type="button"
+        onclick="window.print()"
+        class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+      >
+        Print / Save PDF
+      </button>
+      <a
+        href="{% url 'dashboard:payment_receipt_pdf' payment.pk %}"
+        class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400"
+      >
+        Download PDF
+      </a>
+      <form method="post" action="{% url 'dashboard:payment_receipt_whatsapp' payment.pk %}">
+        {% csrf_token %}
+        <button
+          type="submit"
+          {% if parent_whatsapp_paused %}disabled{% endif %}
+          class="rounded-md border px-4 py-2 text-sm font-semibold {% if parent_whatsapp_paused %}cursor-not-allowed border-zinc-900 text-zinc-600{% else %}border-zinc-800 text-zinc-200 hover:border-yellow-400 hover:text-yellow-400{% endif %}"
+          title="{% if parent_whatsapp_paused %}Parent paused WhatsApp (STOP){% elif receipt_whatsapp_sent_at %}Force resend receipt{% else %}Send receipt on WhatsApp{% endif %}"
+        >
+          {% if receipt_whatsapp_sent_at %}Resend WhatsApp{% else %}Send WhatsApp{% endif %}
+        </button>
+      </form>
+      <a
+        href="{% url 'dashboard:student_fee_statement' student.admission_number %}"
+        class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400"
+      >
+        Fee statement
+      </a>
+    </div>
+  </div>
+
+  <article class="mx-auto max-w-2xl rounded-md border border-zinc-800 bg-white p-8 text-zinc-900 print:border-0 print:p-0">
+    <header class="border-b border-zinc-200 pb-4">
+      <h1 class="text-2xl font-semibold tracking-tight">{{ payment.school.name }}</h1>
+      <p class="mt-1 text-sm text-zinc-600">Official fee payment receipt</p>
+    </header>
+    <dl class="mt-6 grid gap-3 text-sm sm:grid-cols-2">
+      <div>
+        <dt class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Receipt No.</dt>
+        <dd class="mt-1 font-medium">{{ payment.mpesa_receipt_number|default:payment.pk }}</dd>
+      </div>
+      <div>
+        <dt class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Date</dt>
+        <dd class="mt-1 font-medium">{{ payment.updated_at|date:"d M Y H:i" }}</dd>
+      </div>
+      <div>
+        <dt class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Student</dt>
+        <dd class="mt-1 font-medium">{{ student.full_name }}</dd>
+      </div>
+      <div>
+        <dt class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Admission</dt>
+        <dd class="mt-1 font-medium">{{ student.admission_number }}</dd>
+      </div>
+      <div>
+        <dt class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Class</dt>
+        <dd class="mt-1 font-medium">{{ student.current_stream|default:student.grade_level|default:"—" }}</dd>
+      </div>
+      <div>
+        <dt class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Term</dt>
+        <dd class="mt-1 font-medium">{{ invoice.term }}</dd>
+      </div>
+      <div>
+        <dt class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Amount paid</dt>
+        <dd class="mt-1 text-lg font-semibold">KES {{ payment.amount }}</dd>
+      </div>
+      <div>
+        <dt class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Invoice balance</dt>
+        <dd class="mt-1 font-medium">KES {{ invoice.balance }}</dd>
+      </div>
+      <div>
+        <dt class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Phone</dt>
+        <dd class="mt-1 font-medium">{{ payment.phone_number }}</dd>
+      </div>
+    </dl>
+    <p class="mt-8 text-xs text-zinc-500">Generated by Kora. Retain for your records.</p>
+  </article>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  @media print {
+    .no-print,
+    aside,
+    header,
+    nav,
+    .sidebar,
+    #sidebar,
+    [data-sidebar] {
+      display: none !important;
+    }
+    body {
+      background: white !important;
+    }
+    main,
+    .content,
+    #content {
+      margin: 0 !important;
+      padding: 0 !important;
+      max-width: none !important;
+    }
+  }
+</style>
+{% endblock %}

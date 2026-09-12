@@ -29,6 +29,7 @@ class ParentContactAdmin(admin.ModelAdmin):
         'phone_number',
         'parent_name',
         'is_verified',
+        'reminders_paused_at',
         'last_contacted_at',
         'school',
         'created_at',
@@ -37,7 +38,12 @@ class ParentContactAdmin(admin.ModelAdmin):
     search_fields = ('phone_number', 'parent_name')
     autocomplete_fields = ('school', 'students')
     filter_horizontal = ('students',)
-    readonly_fields = ('last_contacted_at', 'created_at', 'updated_at')
+    readonly_fields = (
+        'last_contacted_at',
+        'reminders_paused_at',
+        'created_at',
+        'updated_at',
+    )
 
 
 @admin.register(ConversationSession)

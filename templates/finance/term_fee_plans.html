@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}Fee plans · Kora{% endblock %}
+
+{% block page_title %}Fee plans{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  <a href="{% url 'finance:overview' %}" class="hover:text-yellow-400">Finance</a>
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">Fee plans</span>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">Term fee plans</h2>
+        <p class="mt-2 max-w-2xl text-sm text-zinc-400">
+          Build vote-head fee structures (tuition, lunch, transport…) and generate student invoices for the ledger.
+        </p>
+      </div>
+      <a
+        href="{% url 'dashboard:fee_ledger' %}"
+        class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+      >
+        Fee ledger
+      </a>
+    </div>
+
+    <form
+      method="post"
+      action="{% url 'finance:term_fee_plans' %}"
+      class="space-y-4 rounded-md border border-zinc-800 bg-black p-4"
+      hx-boost="false"
+    >
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create_plan">
+      <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">New fee plan</p>
+
+      {% if form.non_field_errors %}
+        <div class="rounded-md border border-red-400/40 bg-red-400/10 px-3 py-2 text-sm text-red-300">
+          {{ form.non_field_errors|striptags }}
+        </div>
+      {% endif %}
+
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <label class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Plan name</label>
+          {{ form.name }}
+        </div>
+        <div>
+          <label class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Term</label>
+          {{ form.term }}
+        </div>
+        <div>
+          <label class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Grade</label>
+          {{ form.grade_level }}
+        </div>
+        <div>
+          <label class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Due date</label>
+          {{ form.due_date }}
+        </div>
+      </div>
+
+      <div>
+        <p class="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Vote-heads (leave blank to skip)</p>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {% for category in categories %}
+            <div>
+              <label for="amount_{{ category.pk }}" class="mb-1 block text-sm text-zinc-400">{{ category.name }}</label>
+              <input
+                id="amount_{{ category.pk }}"
+                name="amount_{{ category.pk }}"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+              >
+            </div>
+          {% empty %}
+            <p class="text-sm text-zinc-500">No fee categories yet — defaults will be created when you open this page.</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <button type="submit" class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300">
+        Save fee plan
+      </button>
+    </form>
+
+    <div class="space-y-3">
+      <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Saved plans</p>
+      <div class="overflow-x-auto rounded-md border border-zinc-800">
+        <table class="min-w-full border-collapse text-left text-sm">
+          <thead class="bg-black">
+            <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+              <th class="px-4 py-3 font-medium">Plan</th>
+              <th class="px-4 py-3 font-medium">Term</th>
+              <th class="px-4 py-3 font-medium">Scope</th>
+              <th class="px-4 py-3 font-medium">Total</th>
+              <th class="px-4 py-3 font-medium">Due</th>
+              <th class="px-4 py-3 font-medium">Action</th>
+            </tr>
+          </thead>
+          <tbody class="bg-zinc-950">
+            {% for plan in plans %}
+              <tr class="border-b border-zinc-800 align-top">
+                <td class="px-4 py-3">
+                  <p class="font-medium text-zinc-100">{{ plan.name }}</p>
+                  <p class="mt-1 text-xs text-zinc-500">
+                    {% for item in plan.line_items.all %}
+                      {{ item.category.name }} {{ item.amount }}{% if not forloop.last %} · {% endif %}
+                    {% endfor %}
+                  </p>
+                </td>
+                <td class="px-4 py-3 text-zinc-300">{{ plan.term }}</td>
+                <td class="px-4 py-3 text-zinc-400">
+                  {% if plan.grade_level %}{{ plan.grade_level.name }}{% else %}All grades{% endif %}
+                </td>
+                <td class="px-4 py-3 font-mono text-xs text-yellow-400">{{ plan.total_amount }}</td>
+                <td class="px-4 py-3 font-mono text-xs text-zinc-500">{{ plan.due_date|date:"M j, Y" }}</td>
+                <td class="px-4 py-3">
+                  <form method="post" action="{% url 'finance:term_fee_plans' %}" hx-boost="false">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="generate">
+                    <input type="hidden" name="plan_id" value="{{ plan.pk }}">
+                    <button
+                      type="submit"
+                      class="rounded-md border border-yellow-400 bg-yellow-400 px-3 py-1.5 text-xs font-semibold text-black hover:bg-yellow-300"
+                    >
+                      Generate invoices
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" class="px-4 py-8 text-center text-sm text-zinc-500">No fee plans yet.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+{% endblock %}

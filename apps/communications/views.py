@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -57,104 +56,105 @@ def _twiml_response() -> HttpResponse:
 
 
 def resolve_webhook_school(tenant_id: str | None):
-    """Resolve school from ?tenant_id=… or fall back to default active school."""
-    if tenant_id:
-        school = School.objects.filter(pk=tenant_id, is_active=True).first()
-        if school is not None:
-            return school
+    """Resolve school from ?tenant_id=<school UUID> only — no silent fallback."""
+    if not tenant_id:
+        logger.warning('Twilio webhook missing tenant_id')
+        return None
+    school = School.objects.filter(pk=tenant_id, is_active=True).first()
+    if school is None:
         logger.warning('Twilio webhook unknown tenant_id=%s', tenant_id)
-
-    default_code = (
-        getattr(settings, 'TWILIO_DEFAULT_SCHOOL_CODE', '') or 'greenfields-academy'
-    ).strip()
-    if default_code:
-        school = School.objects.filter(code=default_code, is_active=True).first()
-        if school is not None:
-            return school
-
-    return School.objects.filter(is_active=True).order_by('created_at').first()
+    return school
 
 
-def _notify_staff_inbox(*, school, from_phone: str, body: str, session) -> None:
-    """Push a dashboard notification for staff-handled conversations."""
-    preview = (body or '').strip()
-    if len(preview) > 240:
-        preview = f'{preview[:237]}...'
-    title = 'Parent WhatsApp message (staff conversation)'
-    note = (
-        f'From {from_phone}'
-        + (f' · session {session.pk}' if session else '')
-        + (f'\n{preview}' if preview else '')
-    )
-    admin_ids = list(
-        SchoolMembership.objects.filter(
-            school=school,
-            is_admin=True,
-            user__is_active=True,
-        ).values_list('user_id', flat=True)
-    )
-    for user in User.objects.filter(pk__in=admin_ids):
-        notify_user(
-            user=user,
-            school=school,
-            kind=Notification.Kind.NOTICE,
-            title=title,
-            body=note,
+STOP_KEYWORDS = frozenset({'stop', 'unsubscribe', 'cancel'})
+START_KEYWORDS = frozenset({'start', 'unstop', 'resume'})
+
+STOP_CONFIRMATION = (
+    'Understood — we have paused automated fee reminders for this number.\n\n'
+    'You can still message this chat for help. Reply *START* anytime to resume reminders.'
+)
+START_CONFIRMATION = (
+    'Welcome back — fee reminders are on again for this number.\n\n'
+    'Reply *STOP* anytime if you want them paused.'
+)
+START_ALREADY_ACTIVE = (
+    'Fee reminders are already active for this number. '
+    'Reply *STOP* anytime if you want them paused.'
+)
+
+
+def _normalize_opt_out_body(body: str) -> str:
+    return (body or '').strip().casefold()
+
+
+def _handle_reminder_opt_out(*, school, parent_contact, session, from_phone: str, body: str) -> bool:
+    """
+    Handle STOP/START for fee reminders. Returns True if the turn was consumed
+    (caller should not run the agent).
+    """
+    from django.utils import timezone
+
+    from tenants.audit import log_audit_event
+    from tenants.models import AuditEvent
+
+    key = _normalize_opt_out_body(body)
+    if key in STOP_KEYWORDS:
+        parent_contact.reminders_paused_at = timezone.now()
+        parent_contact.reminders_paused_reason = 'parent_stop'
+        parent_contact.save(
+            update_fields=['reminders_paused_at', 'reminders_paused_reason', 'updated_at']
         )
-    logger.info(
-        'Twilio staff-routed message school=%s from=%s session=%s body=%r',
-        school.id,
-        from_phone,
-        getattr(session, 'pk', None),
-        preview,
-    )
-
-
-def _run_bot_agent(*, school, session, student, from_phone: str, body: str) -> None:
-    """Execute KoraAgentOrchestrator and send the appropriate WhatsApp reply."""
-    try:
-        orchestrator = KoraAgentOrchestrator(
-            school=school,
-            session=session,
-            student=student,
-        )
-        reply_text = orchestrator.handle_incoming_message(body)
-    except Exception:
-        logger.exception(
-            'Kora agent failed school=%s session=%s student=%s',
-            school.id,
-            session.pk,
-            getattr(student, 'admission_number', None),
-        )
-        flag_for_human_escalation(
-            str(school.id),
-            str(session.pk),
-            'LLM failure or timeout while handling parent WhatsApp message.',
+        log_audit_event(
+            school,
+            category=AuditEvent.Category.OTHER,
+            action='fee_reminders_paused',
+            summary=f'Parent paused fee reminders ({parent_contact.phone_number})',
+            object_type='ParentContact',
+            object_id=str(parent_contact.pk),
+            metadata={'reason': 'parent_stop', 'phone': parent_contact.phone_number},
         )
         send_whatsapp_message(
             school,
             from_phone,
-            AGENT_FAILURE_MESSAGE,
+            STOP_CONFIRMATION,
             session=session,
             sender_type=MessageLog.Sender.BOT,
         )
-        return
+        return True
 
-    session.refresh_from_db(fields=['status'])
-    if session.status == ConversationSession.Status.ESCALATED_PENDING:
-        outbound = HANDOFF_MESSAGE
-    else:
-        outbound = (reply_text or '').strip() or (
-            f'Thank you. How else can I help regarding *{student.full_name}*?'
+    if key in START_KEYWORDS:
+        if parent_contact.reminders_paused_at is not None:
+            parent_contact.reminders_paused_at = None
+            parent_contact.reminders_paused_reason = ''
+            parent_contact.save(
+                update_fields=[
+                    'reminders_paused_at',
+                    'reminders_paused_reason',
+                    'updated_at',
+                ]
+            )
+            log_audit_event(
+                school,
+                category=AuditEvent.Category.OTHER,
+                action='fee_reminders_resumed',
+                summary=f'Parent resumed fee reminders ({parent_contact.phone_number})',
+                object_type='ParentContact',
+                object_id=str(parent_contact.pk),
+                metadata={'source': 'parent_start', 'phone': parent_contact.phone_number},
+            )
+            reply = START_CONFIRMATION
+        else:
+            reply = START_ALREADY_ACTIVE
+        send_whatsapp_message(
+            school,
+            from_phone,
+            reply,
+            session=session,
+            sender_type=MessageLog.Sender.BOT,
         )
+        return True
 
-    send_whatsapp_message(
-        school,
-        from_phone,
-        outbound,
-        session=session,
-        sender_type=MessageLog.Sender.BOT,
-    )
+    return False
 
 
 @csrf_exempt
@@ -163,13 +163,29 @@ def twilio_whatsapp_webhook(request):
     """
     Inbound Twilio WhatsApp webhook.
 
-    Query: ?tenant_id=<school UUID>
-    Always returns empty TwiML (outbound replies go via REST API).
+    Query: ?tenant_id=<school UUID> (required).
+    Signature must validate. Always returns empty TwiML (replies via REST).
     """
+    from communications.services.twilio_security import (
+        verify_twilio_request,
+        webhook_to_matches_school,
+    )
+
+    if not verify_twilio_request(request):
+        return _twiml_response()
+
     tenant_id = (request.GET.get('tenant_id') or '').strip() or None
     school = resolve_webhook_school(tenant_id)
     if school is None:
-        logger.error('Twilio webhook: no active school available')
+        return _twiml_response()
+
+    raw_to = (request.POST.get('To') or '').strip()
+    if not webhook_to_matches_school(school, raw_to):
+        logger.warning(
+            'Twilio webhook To mismatch school=%s to=%r',
+            school.pk,
+            raw_to,
+        )
         return _twiml_response()
 
     raw_from = (request.POST.get('From') or '').strip()
@@ -194,6 +210,16 @@ def twilio_whatsapp_webhook(request):
         twilio_message_sid=message_sid,
         delivery_status=MessageLog.DeliveryStatus.DELIVERED,
     )
+
+    # Fee-reminder opt-out/in — honor even during staff/escalated sessions.
+    if _handle_reminder_opt_out(
+        school=school,
+        parent_contact=parent_contact,
+        session=session,
+        from_phone=from_phone,
+        body=body,
+    ):
+        return _twiml_response()
 
     # Staff / escalated queues: no automated agent replies.
     if session.status in (
@@ -269,6 +295,83 @@ def twilio_whatsapp_webhook(request):
         body=body,
     )
     return _twiml_response()
+
+
+def _notify_staff_inbox(*, school, from_phone: str, body: str, session) -> None:
+    """Push a dashboard notification for staff-handled conversations."""
+    from communications.services.staff_notify import finance_staff_users
+
+    preview = (body or '').strip()
+    if len(preview) > 240:
+        preview = f'{preview[:237]}...'
+    title = 'Parent WhatsApp message (staff conversation)'
+    note = (
+        f'From {from_phone}'
+        + (f' · session {session.pk}' if session else '')
+        + (f'\n{preview}' if preview else '')
+    )
+    for user in finance_staff_users(school):
+        notify_user(
+            user=user,
+            school=school,
+            kind=Notification.Kind.NOTICE,
+            title=title,
+            body=note,
+        )
+    logger.info(
+        'Twilio staff-routed message school=%s from=%s session=%s body=%r',
+        school.id,
+        from_phone,
+        getattr(session, 'pk', None),
+        preview,
+    )
+
+
+def _run_bot_agent(*, school, session, student, from_phone: str, body: str) -> None:
+    """Execute KoraAgentOrchestrator and send the appropriate WhatsApp reply."""
+    try:
+        orchestrator = KoraAgentOrchestrator(
+            school=school,
+            session=session,
+            student=student,
+        )
+        reply_text = orchestrator.handle_incoming_message(body)
+    except Exception:
+        logger.exception(
+            'Kora agent failed school=%s session=%s student=%s',
+            school.id,
+            session.pk,
+            getattr(student, 'admission_number', None),
+        )
+        flag_for_human_escalation(
+            str(school.id),
+            str(session.pk),
+            'LLM failure or timeout while handling parent WhatsApp message.',
+        )
+        send_whatsapp_message(
+            school,
+            from_phone,
+            AGENT_FAILURE_MESSAGE,
+            session=session,
+            sender_type=MessageLog.Sender.BOT,
+        )
+        return
+
+    session.refresh_from_db(fields=['status'])
+    if session.status == ConversationSession.Status.ESCALATED_PENDING:
+        outbound = HANDOFF_MESSAGE
+    else:
+        outbound = (reply_text or '').strip() or (
+            f'Thank you. How else can I help regarding *{student.full_name}*?'
+        )
+
+    send_whatsapp_message(
+        school,
+        from_phone,
+        outbound,
+        session=session,
+        sender_type=MessageLog.Sender.BOT,
+    )
 
 
 # ---------------------------------------------------------------------------
