@@ -367,3 +367,155 @@ class Student(TenantAwareModel):
                 raise ValidationError(
                     {'grade_level': 'Grade must belong to the same school.'}
                 )
+
+
+class AttendanceRecord(TenantAwareModel):
+    """Daily attendance mark for one student in a stream."""
+
+    class Status(models.TextChoices):
+        PRESENT = 'PRESENT', 'Present'
+        ABSENT = 'ABSENT', 'Absent'
+        LATE = 'LATE', 'Late'
+        EXCUSED = 'EXCUSED', 'Excused'
+
+    student = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name='attendance_records',
+    )
+    stream = models.ForeignKey(
+        ClassStream,
+        on_delete=models.CASCADE,
+        related_name='attendance_records',
+    )
+    date = models.DateField(db_index=True)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PRESENT,
+    )
+    note = models.CharField(max_length=255, blank=True)
+    marked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='marked_attendance',
+    )
+    parent_notified_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date', 'student__admission_number']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['school', 'student', 'date'],
+                name='academics_unique_attendance_per_student_day',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['school', 'stream', 'date']),
+        ]
+
+    def __str__(self):
+        return f'{self.student} · {self.date} · {self.status}'
+
+    def save(self, *args, **kwargs):
+        if self.student_id and not self.school_id:
+            self.school_id = self.student.school_id
+        if self.student_id and not self.stream_id:
+            self.stream_id = self.student.current_stream_id
+        super().save(*args, **kwargs)
+
+
+class WeeklyParentUpdate(TenantAwareModel):
+    """Teacher-initiated weekly attendance + feedback batch for one stream."""
+
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        SENT = 'SENT', 'Sent'
+
+    stream = models.ForeignKey(
+        ClassStream,
+        on_delete=models.CASCADE,
+        related_name='weekly_parent_updates',
+    )
+    week_start = models.DateField(
+        help_text='Monday of the school week (Africa/Nairobi).',
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.DRAFT,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='weekly_parent_updates_created',
+    )
+    sent_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='weekly_parent_updates_sent',
+    )
+    sent_at = models.DateTimeField(null=True, blank=True)
+    teacher_reminded_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-week_start', '-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['school', 'stream', 'week_start'],
+                name='academics_unique_weekly_update_per_stream_week',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.stream} · week {self.week_start} · {self.status}'
+
+    def save(self, *args, **kwargs):
+        if self.stream_id and not self.school_id:
+            self.school_id = self.stream.school_id
+        super().save(*args, **kwargs)
+
+
+class WeeklyStudentFeedback(TenantAwareModel):
+    """Per-student line inside a weekly parent update."""
+
+    update = models.ForeignKey(
+        WeeklyParentUpdate,
+        on_delete=models.CASCADE,
+        related_name='feedback_lines',
+    )
+    student = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name='weekly_feedback',
+    )
+    attendance_summary = models.CharField(max_length=255, blank=True)
+    teacher_note = models.TextField(blank=True)
+    polished_note = models.TextField(blank=True)
+    message_body = models.TextField(blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    skipped_reason = models.CharField(max_length=64, blank=True)
+
+    class Meta:
+        ordering = ['student__admission_number']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['update', 'student'],
+                name='academics_unique_weekly_feedback_per_student',
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.update_id and not self.school_id:
+            self.school_id = self.update.school_id
+        super().save(*args, **kwargs)

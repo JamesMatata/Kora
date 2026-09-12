@@ -3,6 +3,12 @@
     <td class="px-4 py-3">
       <p class="font-medium text-zinc-100">{{ row.student.full_name }}</p>
       <p class="mt-0.5 font-mono text-[10px] uppercase text-zinc-500">{{ row.student.admission_number }}</p>
+      {% if row.reminders_paused %}
+        <p class="mt-1 font-mono text-[10px] uppercase tracking-wider text-red-400">
+          Reminders paused
+          <a href="{% url 'dashboard:paused_reminders' %}" class="ml-1 text-zinc-500 hover:text-yellow-400 normal-case tracking-normal">View</a>
+        </p>
+      {% endif %}
     </td>
     <td class="px-4 py-3 text-zinc-400">
       {% if row.student.current_stream %}
@@ -14,7 +20,22 @@
       {% endif %}
     </td>
     <td class="px-4 py-3 text-zinc-300">{{ row.invoice.term }}</td>
-    <td class="px-4 py-3 font-mono text-xs text-zinc-300">{{ row.invoice.total_amount }}</td>
+    <td class="px-4 py-3 font-mono text-xs text-zinc-300">
+      {{ row.invoice.total_amount }}
+      {% if row.invoice.discount_amount %}
+        <p class="mt-0.5 text-[10px] text-zinc-500">net {{ row.invoice.net_amount }}</p>
+      {% endif %}
+    </td>
+    <td class="px-4 py-3 font-mono text-xs text-zinc-300">
+      {% if row.invoice.discount_amount %}
+        {{ row.invoice.discount_amount }}
+        {% if row.invoice.discount_note %}
+          <p class="mt-0.5 text-[10px] normal-case tracking-normal text-zinc-500">{{ row.invoice.discount_note }}</p>
+        {% endif %}
+      {% else %}
+        —
+      {% endif %}
+    </td>
     <td class="px-4 py-3 font-mono text-xs text-zinc-300">{{ row.invoice.paid_amount }}</td>
     <td class="px-4 py-3 font-mono text-xs text-yellow-400">{{ row.balance }}</td>
     <td class="px-4 py-3">
@@ -32,6 +53,12 @@
             Profile
           </a>
         {% endif %}
+        <a
+          href="{{ row.statement_url }}"
+          class="rounded-md border border-zinc-800 px-2 py-1 text-xs text-yellow-400 hover:border-yellow-400"
+        >
+          Statement
+        </a>
         <button
           type="button"
           class="open-stk-modal rounded-md border border-zinc-800 px-2 py-1 text-xs text-yellow-400 hover:border-yellow-400"
@@ -57,7 +84,7 @@
   </tr>
 {% empty %}
   <tr>
-    <td colspan="8" class="px-4 py-8 text-center text-sm text-zinc-500">
+    <td colspan="9" class="px-4 py-8 text-center text-sm text-zinc-500">
       {% if query %}
         No invoices match “{{ query }}”.
       {% else %}

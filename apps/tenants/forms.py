@@ -103,3 +103,123 @@ class SchoolCreateForm(forms.ModelForm):
     def clean_code(self):
         code = self.cleaned_data['code'].strip().lower()
         return code
+
+
+class SchoolSettingsForm(forms.Form):
+    """Edit school contact + M-Pesa/WhatsApp credentials (secrets optional)."""
+
+    name = forms.CharField(
+        max_length=255,
+        widget=forms.TextInput(attrs={'class': INPUT_CLASS}),
+    )
+    contact_phone = forms.CharField(
+        required=False,
+        max_length=32,
+        validators=[E164_OR_BLANK],
+        widget=forms.TextInput(
+            attrs={'class': INPUT_CLASS, 'placeholder': '+254712345678'}
+        ),
+    )
+    contact_email = forms.EmailField(
+        required=False,
+        widget=forms.EmailInput(attrs={'class': INPUT_CLASS}),
+    )
+    paybill_number = forms.CharField(
+        required=False,
+        max_length=32,
+        widget=forms.TextInput(
+            attrs={
+                'class': INPUT_CLASS,
+                'placeholder': 'e.g. 562340 or sandbox 174379',
+            }
+        ),
+        help_text='Safaricom Paybill / Till shortcode used for STK and C2B.',
+    )
+    twilio_phone_number = forms.CharField(
+        required=False,
+        max_length=16,
+        validators=[E164_OR_BLANK],
+        widget=forms.TextInput(
+            attrs={'class': INPUT_CLASS, 'placeholder': '+14155238886'}
+        ),
+        help_text='WhatsApp sender override. Leave blank to use the platform default.',
+    )
+    mpesa_consumer_key = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(
+            attrs={
+                'class': INPUT_CLASS,
+                'placeholder': 'Leave blank to keep existing',
+                'autocomplete': 'off',
+            },
+            render_value=False,
+        ),
+    )
+    mpesa_consumer_secret = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(
+            attrs={
+                'class': INPUT_CLASS,
+                'placeholder': 'Leave blank to keep existing',
+                'autocomplete': 'off',
+            },
+            render_value=False,
+        ),
+    )
+    mpesa_passkey = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(
+            attrs={
+                'class': INPUT_CLASS,
+                'placeholder': 'Leave blank to keep existing',
+                'autocomplete': 'off',
+            },
+            render_value=False,
+        ),
+    )
+    mpesa_environment = forms.ChoiceField(
+        required=False,
+        choices=(
+            ('', 'Platform default'),
+            ('sandbox', 'Sandbox (testing)'),
+            ('production', 'Production (live Paybill)'),
+        ),
+        widget=forms.Select(attrs={'class': INPUT_CLASS}),
+        help_text=(
+            'Which Safaricom Daraja host to call. Production requires live '
+            'credentials from Safaricom — never point sandbox keys at production.'
+        ),
+    )
+
+    def __init__(self, *args, school=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.school = school
+        if school is not None and not self.is_bound:
+            self.fields['name'].initial = school.name
+            self.fields['contact_phone'].initial = school.contact_phone
+            self.fields['contact_email'].initial = school.contact_email
+            self.fields['paybill_number'].initial = school.paybill_number
+            self.fields['twilio_phone_number'].initial = school.twilio_phone_number
+            self.fields['mpesa_environment'].initial = school.mpesa_environment or ''
+
+    def save(self):
+        school = self.school
+        school.name = self.cleaned_data['name'].strip()
+        school.contact_phone = (self.cleaned_data.get('contact_phone') or '').strip()
+        school.contact_email = (self.cleaned_data.get('contact_email') or '').strip()
+        school.paybill_number = (self.cleaned_data.get('paybill_number') or '').strip()
+        school.twilio_phone_number = (
+            self.cleaned_data.get('twilio_phone_number') or ''
+        ).strip()
+        school.mpesa_environment = (
+            self.cleaned_data.get('mpesa_environment') or ''
+        ).strip()
+        school.set_mpesa_credentials(
+            consumer_key=(self.cleaned_data.get('mpesa_consumer_key') or '').strip(),
+            consumer_secret=(
+                self.cleaned_data.get('mpesa_consumer_secret') or ''
+            ).strip(),
+            passkey=(self.cleaned_data.get('mpesa_passkey') or '').strip(),
+        )
+        school.save()
+        return school

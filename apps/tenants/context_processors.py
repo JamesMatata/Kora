@@ -10,6 +10,8 @@ def layout(request):
     empty = {
         'active_school': None,
         'is_admin': False,
+        'is_bursar': False,
+        'can_access_finance': False,
         'is_class_teacher': False,
         'can_switch_role': False,
         'role_mode': None,
@@ -32,6 +34,8 @@ def layout(request):
     # Nav follows the active role mode for dual users.
     is_admin = bool(getattr(request, 'acting_as_admin', False))
     is_class_teacher = bool(getattr(request, 'acting_as_teacher', False))
+    is_bursar = bool(getattr(request, 'is_current_school_bursar', False))
+    can_access_finance = is_admin or is_bursar
 
     if can_switch:
         role_label = 'Admin' if role_mode == 'admin' else 'Teacher'
@@ -39,6 +43,8 @@ def layout(request):
         role_label = membership.role_label
     elif is_admin:
         role_label = 'Admin'
+    elif is_bursar:
+        role_label = 'Bursar'
     elif is_class_teacher:
         role_label = 'Class Teacher'
     else:
@@ -66,6 +72,8 @@ def layout(request):
     return {
         'active_school': active_school,
         'is_admin': is_admin,
+        'is_bursar': is_bursar,
+        'can_access_finance': can_access_finance,
         'is_class_teacher': is_class_teacher,
         'can_switch_role': can_switch,
         'role_mode': role_mode,

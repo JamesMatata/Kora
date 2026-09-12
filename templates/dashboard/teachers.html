@@ -79,6 +79,8 @@
                   data-email="{{ row.user.email }}"
                   data-is-admin="{% if row.membership.is_admin %}1{% else %}0{% endif %}"
                   data-is-teacher="{% if row.membership.is_teacher %}1{% else %}0{% endif %}"
+                  data-is-bursar="{% if row.membership.is_bursar %}1{% else %}0{% endif %}"
+                  data-phone-number="{{ row.membership.phone_number }}"
                   data-is-active="{% if row.user.is_active %}1{% else %}0{% endif %}"
                 >Edit</button>
               </td>
@@ -100,9 +102,14 @@
             <li class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-zinc-800 px-3 py-2 text-sm">
               <span class="font-mono text-xs text-zinc-300">{{ invite.email }}</span>
               <span class="text-zinc-500">
-                {% if invite.role_admin and invite.role_teacher %}Dual
+                {% if invite.role_admin and invite.role_teacher and invite.role_bursar %}Admin · Teacher · Bursar
+                {% elif invite.role_admin and invite.role_teacher %}Admin · Teacher
+                {% elif invite.role_admin and invite.role_bursar %}Admin · Bursar
+                {% elif invite.role_teacher and invite.role_bursar %}Teacher · Bursar
                 {% elif invite.role_admin %}Admin
-                {% else %}Teacher{% endif %}
+                {% elif invite.role_bursar %}Bursar
+                {% elif invite.role_teacher %}Teacher
+                {% else %}—{% endif %}
                 · expires {{ invite.expires_at|date:"M j, Y" }}
               </span>
             </li>
@@ -153,6 +160,10 @@
         <label class="flex items-center justify-between gap-3 text-sm text-zinc-200">
           <span>Teacher</span>
           {{ invite_form.role_teacher }}
+        </label>
+        <label class="flex items-center justify-between gap-3 text-sm text-zinc-200">
+          <span>Bursar</span>
+          {{ invite_form.role_bursar }}
         </label>
         <label class="flex items-center justify-between gap-3 text-sm {% if admin_slots_remaining <= 0 %}text-zinc-600{% else %}text-zinc-200{% endif %}">
           <span>
@@ -224,11 +235,23 @@
           <p class="mt-1 text-xs text-red-400">{{ edit_form.email.errors|striptags }}</p>
         {% endif %}
       </div>
+      <div>
+        <label for="{{ edit_form.phone_number.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">WhatsApp (ops)</label>
+        {{ edit_form.phone_number }}
+        <p class="mt-1 text-xs text-zinc-500">Optional. Used for Friday weekly-update nudges to teachers.</p>
+        {% if edit_form.phone_number.errors %}
+          <p class="mt-1 text-xs text-red-400">{{ edit_form.phone_number.errors|striptags }}</p>
+        {% endif %}
+      </div>
       <div class="space-y-3 rounded-md border border-zinc-800 bg-black p-3">
         <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Roles</p>
         <label class="flex items-center justify-between gap-3 text-sm text-zinc-200">
           <span>Teacher</span>
           {{ edit_form.is_teacher }}
+        </label>
+        <label class="flex items-center justify-between gap-3 text-sm text-zinc-200">
+          <span>Bursar</span>
+          {{ edit_form.is_bursar }}
         </label>
         <label class="flex items-center justify-between gap-3 text-sm text-zinc-200">
           <span>Admin</span>
@@ -295,6 +318,8 @@
     const email = document.getElementById('{{ edit_form.email.id_for_label }}');
     const isAdmin = document.getElementById('{{ edit_form.is_admin.id_for_label }}');
     const isTeacher = document.getElementById('{{ edit_form.is_teacher.id_for_label }}');
+    const isBursar = document.getElementById('{{ edit_form.is_bursar.id_for_label }}');
+    const phoneNumber = document.getElementById('{{ edit_form.phone_number.id_for_label }}');
     const isActive = document.getElementById('{{ edit_form.is_active.id_for_label }}');
 
     document.querySelectorAll('.open-edit-staff-modal').forEach(function (btn) {
@@ -303,8 +328,10 @@
         if (firstName) firstName.value = btn.dataset.firstName || '';
         if (lastName) lastName.value = btn.dataset.lastName || '';
         if (email) email.value = btn.dataset.email || '';
+        if (phoneNumber) phoneNumber.value = btn.dataset.phoneNumber || '';
         if (isAdmin) isAdmin.checked = btn.dataset.isAdmin === '1';
         if (isTeacher) isTeacher.checked = btn.dataset.isTeacher === '1';
+        if (isBursar) isBursar.checked = btn.dataset.isBursar === '1';
         if (isActive) isActive.checked = btn.dataset.isActive === '1';
         editDrawer.openModal();
       });

@@ -184,6 +184,80 @@ class FeeCategory(TenantAwareModel):
         return self.name
 
 
+class TermFeePlan(TenantAwareModel):
+    """Term billing plan with vote-head line items, scoped to a grade or whole school."""
+
+    name = models.CharField(max_length=160)
+    term = models.CharField(max_length=64, help_text='e.g. Term 1 2026')
+    grade_level = models.ForeignKey(
+        'academics.GradeLevel',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='term_fee_plans',
+        help_text='Leave empty to bill all active students in the school.',
+    )
+    due_date = models.DateField()
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_term_fee_plans',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['school', 'term']),
+        ]
+
+    def __str__(self):
+        scope = self.grade_level.name if self.grade_level_id else 'All grades'
+        return f'{self.name} · {self.term} · {scope}'
+
+    @property
+    def total_amount(self) -> Decimal:
+        total = self.line_items.aggregate(total=Sum('amount'))['total']
+        return total or Decimal('0.00')
+
+
+class TermFeeLineItem(TenantAwareModel):
+    """Single vote-head amount inside a term fee plan."""
+
+    plan = models.ForeignKey(
+        TermFeePlan,
+        on_delete=models.CASCADE,
+        related_name='line_items',
+    )
+    category = models.ForeignKey(
+        FeeCategory,
+        on_delete=models.PROTECT,
+        related_name='plan_line_items',
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        ordering = ['category__name']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['plan', 'category'],
+                name='finance_unique_line_item_per_plan_category',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.category.name}: {self.amount}'
+
+    def save(self, *args, **kwargs):
+        if self.plan_id and not self.school_id:
+            self.school_id = self.plan.school_id
+        super().save(*args, **kwargs)
+
+
 class FeeInvoice(TenantAwareModel):
     """Invoice for a student for a given term."""
 
@@ -205,6 +279,13 @@ class FeeInvoice(TenantAwareModel):
         decimal_places=2,
         default=Decimal('0.00'),
     )
+    discount_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text='Bursary, scholarship, or waiver credited against this invoice.',
+    )
+    discount_note = models.CharField(max_length=255, blank=True)
     due_date = models.DateField()
     status = models.CharField(
         max_length=20,
@@ -235,19 +316,25 @@ class FeeInvoice(TenantAwareModel):
         super().save(*args, **kwargs)
 
     @property
+    def net_amount(self) -> Decimal:
+        return max(self.total_amount - (self.discount_amount or Decimal('0.00')), Decimal('0.00'))
+
+    @property
     def balance(self) -> Decimal:
-        return self.total_amount - self.paid_amount
+        return self.net_amount - (self.paid_amount or Decimal('0.00'))
 
     def refresh_status(self, save=True):
-        today = timezone.localdate()
-        if self.paid_amount <= 0:
+        from communications.services.whatsapp_delivery import local_today
+
+        today = local_today()
+        if self.balance <= 0:
+            self.status = self.Status.PAID
+        elif self.paid_amount <= 0 and self.discount_amount <= 0:
             self.status = (
                 self.Status.OVERDUE
                 if self.due_date < today
                 else self.Status.PENDING
             )
-        elif self.paid_amount >= self.total_amount:
-            self.status = self.Status.PAID
         else:
             self.status = (
                 self.Status.OVERDUE
@@ -262,6 +349,28 @@ class FeeInvoice(TenantAwareModel):
         self.refresh_status(save=False)
         if save:
             self.save(update_fields=['paid_amount', 'status', 'updated_at'])
+
+    def apply_discount(self, amount: Decimal, note: str = '', *, waive_remaining: bool = False):
+        """Apply bursary/discount or waive remaining balance."""
+        amount = Decimal(str(amount or '0'))
+        if waive_remaining:
+            amount = max(self.balance, Decimal('0.00'))
+        if amount < 0:
+            raise ValidationError('Discount cannot be negative.')
+        self.discount_amount = (self.discount_amount or Decimal('0.00')) + amount
+        if self.discount_amount > self.total_amount:
+            self.discount_amount = self.total_amount
+        if note:
+            self.discount_note = note[:255]
+        self.refresh_status(save=False)
+        self.save(
+            update_fields=[
+                'discount_amount',
+                'discount_note',
+                'status',
+                'updated_at',
+            ]
+        )
 
 
 class PaymentTransaction(TenantAwareModel):
@@ -323,6 +432,11 @@ class PaymentTransaction(TenantAwareModel):
     result_code = models.IntegerField(null=True, blank=True)
     result_desc = models.TextField(null=True, blank=True)
     raw_callback_payload = models.JSONField(default=dict, blank=True)
+    receipt_whatsapp_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When the digital receipt WhatsApp was first delivered.',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -437,4 +551,122 @@ class PaymentPromise(TenantAwareModel):
     def save(self, *args, **kwargs):
         if self.invoice_id and not self.school_id:
             self.school_id = self.invoice.school_id
+        super().save(*args, **kwargs)
+
+
+class FeeInvoiceLineItem(TenantAwareModel):
+    """Vote-head snapshot on a generated invoice (from the term fee plan)."""
+
+    invoice = models.ForeignKey(
+        FeeInvoice,
+        on_delete=models.CASCADE,
+        related_name='line_items',
+    )
+    category_name = models.CharField(max_length=128)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'id']
+
+    def __str__(self):
+        return f'{self.category_name}: {self.amount}'
+
+    def save(self, *args, **kwargs):
+        if self.invoice_id and not self.school_id:
+            self.school_id = self.invoice.school_id
+        super().save(*args, **kwargs)
+
+
+class StudentFeeCredit(TenantAwareModel):
+    """Prepaid / overpayment credit held for a student (carries to next term)."""
+
+    student = models.OneToOneField(
+        'academics.Student',
+        on_delete=models.CASCADE,
+        related_name='fee_credit',
+    )
+    balance = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+    )
+    refund_allowed = models.BooleanField(
+        default=False,
+        help_text='When true, parent may visit the school to collect a refund.',
+    )
+    refund_allowed_at = models.DateTimeField(null=True, blank=True)
+    refund_allowed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='fee_credits_approved',
+    )
+    refund_collected_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f'Credit {self.balance} · student {self.student_id}'
+
+    def save(self, *args, **kwargs):
+        if self.student_id and not self.school_id:
+            self.school_id = self.student.school_id
+        super().save(*args, **kwargs)
+
+
+class StudentFeeCreditMovement(TenantAwareModel):
+    """Append-only credit wallet movements."""
+
+    class Kind(models.TextChoices):
+        OVERPAYMENT = 'OVERPAYMENT', 'Overpayment held'
+        APPLIED = 'APPLIED', 'Applied to invoice'
+        REFUND_ALLOWED = 'REFUND_ALLOWED', 'Refund allowed'
+        REFUND_COLLECTED = 'REFUND_COLLECTED', 'Refund collected at school'
+
+    credit = models.ForeignKey(
+        StudentFeeCredit,
+        on_delete=models.CASCADE,
+        related_name='movements',
+    )
+    kind = models.CharField(max_length=32, choices=Kind.choices)
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text='Positive increases wallet; negative decreases.',
+    )
+    payment_transaction = models.ForeignKey(
+        PaymentTransaction,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='credit_movements',
+    )
+    invoice = models.ForeignKey(
+        FeeInvoice,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='credit_movements',
+    )
+    note = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='fee_credit_movements',
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        if self.credit_id and not self.school_id:
+            self.school_id = self.credit.school_id
         super().save(*args, **kwargs)

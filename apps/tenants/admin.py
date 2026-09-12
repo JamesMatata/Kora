@@ -1,7 +1,15 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
-from tenants.models import Notification, School, SchoolMembership, StaffInvitation, User
+from tenants.models import (
+    AuditEvent,
+    Notification,
+    OpsJobRun,
+    School,
+    SchoolMembership,
+    StaffInvitation,
+    User,
+)
 
 
 class SchoolMembershipInline(admin.TabularInline):
@@ -31,13 +39,15 @@ class SchoolAdmin(admin.ModelAdmin):
         ('Daraja (encrypted at rest)', {
             'classes': ('collapse',),
             'fields': (
+                'mpesa_environment',
                 'mpesa_consumer_key',
                 'mpesa_consumer_secret',
                 'mpesa_passkey',
             ),
             'description': (
                 'Store Fernet-encrypted values via School.set_mpesa_credentials(). '
-                'Leaving these blank falls back to project DARAJA_* env keys.'
+                'Leaving secrets blank falls back to project DARAJA_* env keys. '
+                'mpesa_environment blank uses DARAJA_ENVIRONMENT (sandbox|production).'
             ),
         }),
         ('Timestamps', {
@@ -101,9 +111,17 @@ class UserAdmin(DjangoUserAdmin):
 
 @admin.register(SchoolMembership)
 class SchoolMembershipAdmin(admin.ModelAdmin):
-    list_display = ('user', 'school', 'is_admin', 'is_teacher', 'created_at')
-    list_filter = ('is_admin', 'is_teacher', 'school')
-    search_fields = ('user__email', 'school__name', 'school__code')
+    list_display = (
+        'user',
+        'school',
+        'is_admin',
+        'is_teacher',
+        'is_bursar',
+        'phone_number',
+        'created_at',
+    )
+    list_filter = ('is_admin', 'is_teacher', 'is_bursar', 'school')
+    search_fields = ('user__email', 'school__name', 'school__code', 'phone_number')
     autocomplete_fields = ('user', 'school')
 
 
@@ -114,15 +132,63 @@ class StaffInvitationAdmin(admin.ModelAdmin):
         'school',
         'role_admin',
         'role_teacher',
+        'role_bursar',
         'status',
         'invited_by',
         'expires_at',
         'created_at',
     )
-    list_filter = ('status', 'role_admin', 'role_teacher', 'school')
+    list_filter = ('status', 'role_admin', 'role_teacher', 'role_bursar', 'school')
     search_fields = ('email', 'school__name', 'school__code')
     readonly_fields = ('token', 'created_at', 'responded_at')
     autocomplete_fields = ('school', 'invited_by')
+
+
+@admin.register(AuditEvent)
+class AuditEventAdmin(admin.ModelAdmin):
+    list_display = (
+        'created_at',
+        'category',
+        'action',
+        'summary',
+        'actor',
+        'school',
+    )
+    list_filter = ('category', 'school')
+    search_fields = ('summary', 'action', 'object_id')
+    readonly_fields = (
+        'school',
+        'actor',
+        'category',
+        'action',
+        'object_type',
+        'object_id',
+        'summary',
+        'metadata',
+        'created_at',
+    )
+
+
+@admin.register(OpsJobRun)
+class OpsJobRunAdmin(admin.ModelAdmin):
+    list_display = (
+        'job_name',
+        'status',
+        'school',
+        'summary',
+        'finished_at',
+    )
+    list_filter = ('job_name', 'status', 'school')
+    search_fields = ('job_name', 'summary', 'detail')
+    readonly_fields = (
+        'job_name',
+        'school',
+        'status',
+        'summary',
+        'detail',
+        'started_at',
+        'finished_at',
+    )
 
 
 @admin.register(Notification)

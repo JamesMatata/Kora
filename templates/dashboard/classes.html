@@ -45,12 +45,32 @@
               <ul class="divide-y divide-zinc-800">
                 {% for item in card.stream_forms %}
                   <li class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div class="flex min-w-0 items-center gap-3">
+                    <div class="flex min-w-0 flex-wrap items-center gap-3">
                       <p class="truncate text-sm font-medium text-zinc-100">{{ item.stream.name }}</p>
+                      {% if item.stream.is_default %}
+                        <span class="font-mono text-[10px] uppercase tracking-wider text-zinc-600">Default</span>
+                      {% endif %}
                       <a
                         href="{% url 'dashboard:stream_roster' item.stream.slug %}"
                         class="shrink-0 text-xs text-yellow-400 hover:text-yellow-300"
                       >Roster</a>
+                      <button
+                        type="button"
+                        class="open-stream-edit text-xs text-zinc-500 hover:text-yellow-400"
+                        data-slug="{{ item.stream.slug }}"
+                        data-name="{{ item.stream.name }}"
+                      >Rename</button>
+                      {% if not item.stream.is_default %}
+                        <form
+                          method="post"
+                          action="{% url 'dashboard:stream_delete' item.stream.slug %}"
+                          class="inline"
+                          onsubmit="return confirm('Delete stream {{ item.stream.name }}? Students must be moved first.');"
+                        >
+                          {% csrf_token %}
+                          <button type="submit" class="text-xs text-zinc-600 hover:text-red-400">Delete</button>
+                        </form>
+                      {% endif %}
                     </div>
                     {% include "dashboard/partials/stream_teacher_form.html" with stream=item.stream form=item.form saved=False %}
                   </li>
@@ -131,6 +151,41 @@
       </button>
     </form>
   </aside>
+
+  <div id="stream-edit-backdrop" class="hidden fixed inset-0 z-50 bg-black/80" aria-hidden="true"></div>
+  <div
+    id="stream-edit-modal"
+    class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+  >
+    <form
+      id="stream-edit-form"
+      method="post"
+      action=""
+      class="w-full max-w-sm space-y-4 rounded-md border border-zinc-800 bg-zinc-950 p-5"
+      hx-boost="false"
+    >
+      {% csrf_token %}
+      <div class="flex items-start justify-between gap-3">
+        <h3 class="text-sm font-semibold text-zinc-100">Rename stream</h3>
+        <button type="button" id="stream-edit-close" class="text-zinc-500 hover:text-yellow-400" aria-label="Close">✕</button>
+      </div>
+      <div>
+        <label for="stream-edit-name" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Name</label>
+        <input
+          id="stream-edit-name"
+          name="name"
+          type="text"
+          required
+          class="w-full rounded-md border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+        >
+      </div>
+      <button type="submit" class="w-full rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
+        Save
+      </button>
+    </form>
+  </div>
 {% endblock %}
 
 {% block extra_js %}
@@ -190,6 +245,31 @@
     {% if show_grade_modal %}
     openModal();
     {% endif %}
+
+    const streamBackdrop = document.getElementById('stream-edit-backdrop');
+    const streamModal = document.getElementById('stream-edit-modal');
+    const streamForm = document.getElementById('stream-edit-form');
+    const streamName = document.getElementById('stream-edit-name');
+    const streamClose = document.getElementById('stream-edit-close');
+    function openStreamEdit(btn) {
+      const slug = btn.dataset.slug || '';
+      streamForm.action = '/classes/streams/' + encodeURIComponent(slug) + '/edit/';
+      streamName.value = btn.dataset.name || '';
+      streamBackdrop.classList.remove('hidden');
+      streamModal.classList.remove('hidden');
+      if (window.KoraOverlay) window.KoraOverlay.lock();
+      streamName.focus();
+    }
+    function closeStreamEdit() {
+      streamBackdrop.classList.add('hidden');
+      streamModal.classList.add('hidden');
+      if (window.KoraOverlay) window.KoraOverlay.unlock();
+    }
+    document.querySelectorAll('.open-stream-edit').forEach(function (btn) {
+      btn.addEventListener('click', function () { openStreamEdit(btn); });
+    });
+    if (streamClose) streamClose.addEventListener('click', closeStreamEdit);
+    if (streamBackdrop) streamBackdrop.addEventListener('click', closeStreamEdit);
   })();
 </script>
 {% endblock %}

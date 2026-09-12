@@ -55,6 +55,7 @@ static_root/
 *.sql
 *.dump
 *.backup
+backups/
 pgdata/
 postgres-data/
 

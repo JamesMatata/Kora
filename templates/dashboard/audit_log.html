@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Audit log · Kora{% endblock %}
+
+{% block page_title %}Audit log{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">Audit log</span>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div>
+      <h2 class="text-2xl font-semibold text-zinc-100">Audit log</h2>
+      <p class="mt-2 text-sm text-zinc-400">Payments, role changes, and settings updates for this school.</p>
+    </div>
+
+    <form method="get" class="flex flex-wrap items-end gap-3 rounded-md border border-zinc-800 bg-black p-4">
+      <div>
+        <label class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Category</label>
+        <select name="category" class="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400">
+          {% for value, label in category_choices %}
+            <option value="{{ value }}" {% if category == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="rounded-md border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400">Filter</button>
+    </form>
+
+    <div class="overflow-x-auto rounded-md border border-zinc-800">
+      <table class="min-w-full border-collapse text-left text-sm">
+        <thead class="bg-black">
+          <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+            <th class="px-4 py-3 font-medium">When</th>
+            <th class="px-4 py-3 font-medium">Category</th>
+            <th class="px-4 py-3 font-medium">Summary</th>
+            <th class="px-4 py-3 font-medium">Actor</th>
+          </tr>
+        </thead>
+        <tbody class="bg-zinc-950">
+          {% for event in events %}
+            <tr class="border-b border-zinc-800 align-top">
+              <td class="px-4 py-3 text-zinc-400">{{ event.created_at|date:"d M Y H:i" }}</td>
+              <td class="px-4 py-3 font-mono text-[10px] uppercase text-yellow-400">{{ event.get_category_display }}</td>
+              <td class="px-4 py-3 text-zinc-200">
+                {{ event.summary }}
+                <p class="mt-1 font-mono text-[10px] text-zinc-600">{{ event.action }}{% if event.object_id %} · {{ event.object_type }} {{ event.object_id }}{% endif %}</p>
+              </td>
+              <td class="px-4 py-3 text-zinc-400">
+                {% if event.actor %}{{ event.actor.get_full_name|default:event.actor.email }}{% else %}System{% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="4" class="px-4 py-8 text-center text-sm text-zinc-500">No audit events yet.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}

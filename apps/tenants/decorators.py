@@ -7,6 +7,7 @@ from django.shortcuts import redirect
 
 
 UNAUTHORIZED_ADMIN_MESSAGE = 'Unauthorized: Requires administrator credentials'
+UNAUTHORIZED_FINANCE_MESSAGE = 'Unauthorized: Requires administrator or bursar credentials'
 SWITCH_TO_ADMIN_MESSAGE = 'Switch to Admin mode to access school administration.'
 SWITCH_TO_TEACHER_MESSAGE = 'Switch to Teacher mode to access class teaching tools.'
 
@@ -38,6 +39,45 @@ def school_admin_required(view_func):
             and getattr(request, 'role_mode', None) != 'admin'
         ):
             return _deny(request, SWITCH_TO_ADMIN_MESSAGE)
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped
+
+
+def school_finance_required(view_func):
+    """Require admin (in Admin mode) or bursar for fee/collections tools."""
+
+    @login_required
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        is_admin = getattr(request, 'is_current_school_admin', False)
+        is_bursar = getattr(request, 'is_current_school_bursar', False)
+        if not is_admin and not is_bursar:
+            return _deny(request, UNAUTHORIZED_FINANCE_MESSAGE)
+        if (
+            is_admin
+            and getattr(request, 'can_switch_role', False)
+            and getattr(request, 'role_mode', None) != 'admin'
+            and not is_bursar
+        ):
+            return _deny(request, SWITCH_TO_ADMIN_MESSAGE)
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped
+
+
+def school_staff_required(view_func):
+    """Require any school staff membership (admin, bursar, or teacher)."""
+
+    @login_required
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        if not (
+            getattr(request, 'is_current_school_admin', False)
+            or getattr(request, 'is_current_school_bursar', False)
+            or getattr(request, 'is_current_school_teacher', False)
+        ):
+            return _deny(request, 'Unauthorized: Requires school staff credentials')
         return view_func(request, *args, **kwargs)
 
     return _wrapped

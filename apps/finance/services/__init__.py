@@ -4,5 +4,9 @@ from finance.services._charges import (  # noqa: F401
     stream_finance_rows,
     student_fee_totals,
 )
+from finance.services.invoicing import (  # noqa: F401
+    ensure_default_fee_categories,
+    generate_invoices_from_plan,
+)
 from finance.services.reminder_service import FeeReminderService  # noqa: F401
 

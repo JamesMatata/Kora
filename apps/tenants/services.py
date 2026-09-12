@@ -70,11 +70,13 @@ def accept_invitation(*, invitation, user):
         defaults={
             'is_admin': invitation.role_admin,
             'is_teacher': invitation.role_teacher,
+            'is_bursar': invitation.role_bursar,
         },
     )
     if not created:
         membership.is_admin = membership.is_admin or invitation.role_admin
         membership.is_teacher = membership.is_teacher or invitation.role_teacher
+        membership.is_bursar = membership.is_bursar or invitation.role_bursar
         membership.full_clean()
         membership.save()
 

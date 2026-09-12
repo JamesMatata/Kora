@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Fee statement · {{ student.full_name }} · Kora{% endblock %}
+
+{% block page_title %}Fee statement{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  <a href="{% url 'dashboard:fee_ledger' %}" class="hover:text-yellow-400">Fee ledger</a>
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">{{ student.admission_number }}</span>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">{{ student.full_name }}</h2>
+        <p class="mt-1 font-mono text-xs uppercase tracking-wider text-zinc-500">
+          {{ student.admission_number }}
+          {% if student.current_stream %} · {{ student.current_stream }}{% elif student.grade_level %} · {{ student.grade_level.name }}{% endif %}
+        </p>
+        <p class="mt-2 text-sm text-zinc-400">
+          Parent: {{ student.parent_name|default:"—" }} · {{ student.parent_phone|default:"—" }}
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        {% if profile_url %}
+          <a href="{{ profile_url }}" class="rounded-md border border-zinc-800 px-4 py-2 text-sm text-zinc-300 hover:border-yellow-400 hover:text-yellow-400">Profile</a>
+        {% endif %}
+        <a href="{% url 'dashboard:fee_ledger' %}?q={{ student.admission_number }}" class="rounded-md border border-zinc-800 px-4 py-2 text-sm text-zinc-300 hover:border-yellow-400 hover:text-yellow-400">Ledger</a>
+      </div>
+    </div>
+
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div class="rounded-md border border-zinc-800 bg-black p-4">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Billed</p>
+        <p class="mt-2 font-mono text-xl text-zinc-100">KES {{ total_billed }}</p>
+      </div>
+      <div class="rounded-md border border-zinc-800 bg-black p-4">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Discount / bursary</p>
+        <p class="mt-2 font-mono text-xl text-zinc-100">KES {{ total_discount }}</p>
+      </div>
+      <div class="rounded-md border border-zinc-800 bg-black p-4">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Paid</p>
+        <p class="mt-2 font-mono text-xl text-zinc-100">KES {{ total_paid }}</p>
+      </div>
+      <div class="rounded-md border border-zinc-800 bg-black p-4">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Balance</p>
+        <p class="mt-2 font-mono text-xl text-yellow-400">KES {{ total_balance }}</p>
+      </div>
+      <div class="rounded-md border border-zinc-800 bg-black p-4">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Fee credit</p>
+        <p class="mt-2 font-mono text-xl text-zinc-100">KES {{ fee_credit.balance|default:"0.00" }}</p>
+        {% if fee_credit and fee_credit.balance > 0 %}
+          <div class="mt-3 flex flex-wrap gap-2">
+            {% if not fee_credit.refund_allowed %}
+              <form method="post" action="{% url 'dashboard:student_fee_statement' student.admission_number %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="allow_refund">
+                <button type="submit" class="rounded-md border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:border-yellow-400 hover:text-yellow-400">
+                  Allow refund (visit school)
+                </button>
+              </form>
+            {% else %}
+              <p class="text-xs text-yellow-400">Refund authorized — parent to visit school</p>
+              <form method="post" action="{% url 'dashboard:student_fee_statement' student.admission_number %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="mark_refund_collected">
+                <button type="submit" class="rounded-md border border-yellow-400 bg-yellow-400 px-2 py-1 text-xs font-semibold text-black">
+                  Mark refund collected
+                </button>
+              </form>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <section>
+      <h3 class="mb-3 text-sm font-semibold text-zinc-200">Invoices</h3>
+      <div class="overflow-x-auto rounded-md border border-zinc-800">
+        <table class="min-w-full border-collapse text-left text-sm">
+          <thead class="bg-black">
+            <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+              <th class="px-4 py-3 font-medium">Term</th>
+              <th class="px-4 py-3 font-medium">Due</th>
+              <th class="px-4 py-3 font-medium">Billed</th>
+              <th class="px-4 py-3 font-medium">Discount</th>
+              <th class="px-4 py-3 font-medium">Paid</th>
+              <th class="px-4 py-3 font-medium">Balance</th>
+              <th class="px-4 py-3 font-medium">Status</th>
+              <th class="px-4 py-3 font-medium"></th>
+            </tr>
+          </thead>
+          <tbody class="bg-zinc-950">
+            {% for invoice in invoices %}
+              <tr class="border-b border-zinc-800 align-top">
+                <td class="px-4 py-3 text-zinc-200">
+                  {{ invoice.term }}
+                  {% if invoice.line_items.all %}
+                    <ul class="mt-1 space-y-0.5 font-mono text-[10px] normal-case tracking-normal text-zinc-500">
+                      {% for line in invoice.line_items.all %}
+                        <li>{{ line.category_name }} — {{ line.amount }}</li>
+                      {% endfor %}
+                    </ul>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-3 text-zinc-400">{{ invoice.due_date|date:"d M Y" }}</td>
+                <td class="px-4 py-3 font-mono text-xs text-zinc-300">{{ invoice.total_amount }}</td>
+                <td class="px-4 py-3 font-mono text-xs text-zinc-300">
+                  {{ invoice.discount_amount }}
+                  {% if invoice.discount_note %}
+                    <p class="mt-1 text-[10px] normal-case tracking-normal text-zinc-500">{{ invoice.discount_note }}</p>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-3 font-mono text-xs text-zinc-300">{{ invoice.paid_amount }}</td>
+                <td class="px-4 py-3 font-mono text-xs text-yellow-400">{{ invoice.balance }}</td>
+                <td class="px-4 py-3 font-mono text-[10px] uppercase text-zinc-400">{{ invoice.get_status_display }}</td>
+                <td class="px-4 py-3">
+                  <div class="space-y-2">
+                    <details class="text-xs">
+                      <summary class="cursor-pointer text-yellow-400 hover:underline">Record cash/bank</summary>
+                      <form
+                        method="post"
+                        action="{% url 'dashboard:invoice_manual_payment' student.admission_number %}"
+                        class="mt-2 space-y-2 rounded-md border border-zinc-800 bg-black p-2"
+                      >
+                        {% csrf_token %}
+                        <input type="hidden" name="invoice_id" value="{{ invoice.pk }}">
+                        <input
+                          type="number"
+                          name="amount"
+                          step="0.01"
+                          min="0.01"
+                          required
+                          placeholder="Amount paid"
+                          class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-100 outline-none focus:border-yellow-400"
+                        >
+                        <input
+                          type="text"
+                          name="note"
+                          maxlength="200"
+                          placeholder="Cash / bank note"
+                          class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-100 outline-none focus:border-yellow-400"
+                        >
+                        <button type="submit" class="rounded-md border border-yellow-400 bg-yellow-400 px-2 py-1 font-semibold text-black">Save payment</button>
+                      </form>
+                    </details>
+                  {% if invoice.balance > 0 %}
+                    <details class="text-xs">
+                      <summary class="cursor-pointer text-zinc-400 hover:text-yellow-400 hover:underline">Discount / waive</summary>
+                      <form
+                        method="post"
+                        action="{% url 'dashboard:invoice_discount' student.admission_number %}"
+                        class="mt-2 space-y-2 rounded-md border border-zinc-800 bg-black p-2"
+                      >
+                        {% csrf_token %}
+                        <input type="hidden" name="invoice_id" value="{{ invoice.pk }}">
+                        <input
+                          type="number"
+                          name="amount"
+                          step="0.01"
+                          min="0.01"
+                          placeholder="Discount amount"
+                          class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-100 outline-none focus:border-yellow-400"
+                        >
+                        <input
+                          type="text"
+                          name="note"
+                          maxlength="255"
+                          placeholder="Bursary / note"
+                          class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-100 outline-none focus:border-yellow-400"
+                        >
+                        <label class="flex items-center gap-2 text-zinc-400">
+                          <input type="checkbox" name="waive_remaining" value="1" class="rounded border-zinc-700 bg-zinc-950 text-yellow-400">
+                          Waive remaining balance
+                        </label>
+                        <button type="submit" class="rounded-md border border-yellow-400 bg-yellow-400 px-2 py-1 font-semibold text-black">Apply</button>
+                      </form>
+                    </details>
+                  {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="8" class="px-4 py-8 text-center text-sm text-zinc-500">No invoices yet.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h3 class="mb-3 text-sm font-semibold text-zinc-200">Payments</h3>
+      <div class="overflow-x-auto rounded-md border border-zinc-800">
+        <table class="min-w-full border-collapse text-left text-sm">
+          <thead class="bg-black">
+            <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+              <th class="px-4 py-3 font-medium">Date</th>
+              <th class="px-4 py-3 font-medium">Receipt</th>
+              <th class="px-4 py-3 font-medium">Term</th>
+              <th class="px-4 py-3 font-medium">Amount</th>
+              <th class="px-4 py-3 font-medium">Phone</th>
+              <th class="px-4 py-3 font-medium"></th>
+            </tr>
+          </thead>
+          <tbody class="bg-zinc-950">
+            {% for payment in payments %}
+              <tr class="border-b border-zinc-800">
+                <td class="px-4 py-3 text-zinc-400">{{ payment.created_at|date:"d M Y H:i" }}</td>
+                <td class="px-4 py-3 font-mono text-xs text-zinc-300">{{ payment.mpesa_receipt_number|default:"—" }}</td>
+                <td class="px-4 py-3 text-zinc-300">{{ payment.invoice.term }}</td>
+                <td class="px-4 py-3 font-mono text-xs text-yellow-400">{{ payment.amount }}</td>
+                <td class="px-4 py-3 text-zinc-400">{{ payment.phone_number }}</td>
+                <td class="px-4 py-3">
+                  <a
+                    href="{% url 'dashboard:payment_receipt' payment.pk %}"
+                    class="text-xs text-yellow-400 hover:underline"
+                  >Receipt</a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" class="px-4 py-8 text-center text-sm text-zinc-500">No successful payments yet.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+{% endblock %}
