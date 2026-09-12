@@ -34,16 +34,17 @@
     </div>
 
     {% if can_add_stream and stream_create_form %}
-      <form method="post" action="{% url 'dashboard:stream_create' grade.slug %}" class="max-w-md space-y-3 rounded-md border border-zinc-800 bg-black p-4" hx-boost="false">
+      <form method="post" action="{% url 'dashboard:stream_create' grade.slug %}" class="max-w-md space-y-3" hx-boost="false">
         {% csrf_token %}
-        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Add first stream</p>
         <div>
           <label for="{{ stream_create_form.name.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Stream name</label>
           {{ stream_create_form.name }}
         </div>
-        <button type="submit" class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300">
-          Add stream
-        </button>
+        <div class="flex flex-wrap gap-3 pt-2">
+          <button type="submit" class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300">
+            Add stream
+          </button>
+        </div>
       </form>
     {% endif %}
   </div>

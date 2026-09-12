@@ -7,7 +7,7 @@
 {% block breadcrumbs %}
   <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
   <span class="text-zinc-700">/</span>
-  <a href="{% url 'dashboard:fee_ledger' %}" class="hover:text-yellow-400">Fee ledger</a>
+  <a href="{% url 'finance:fee_ledger' %}" class="hover:text-yellow-400">Fee ledger</a>
   <span class="text-zinc-700">/</span>
   <span class="text-zinc-300">Defaulters</span>
 {% endblock %}
@@ -26,13 +26,13 @@
       </div>
       <div class="flex flex-wrap gap-2">
         <a
-          href="{% url 'dashboard:defaulter_export' %}?q={{ filters.q|urlencode }}&amp;grade={{ filters.grade }}&amp;stream={{ filters.stream }}"
+          href="{% url 'finance:defaulter_export' %}?q={{ filters.q|urlencode }}&amp;grade={{ filters.grade }}&amp;stream={{ filters.stream }}"
           class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
         >
           Export CSV
         </a>
         <a
-          href="{% url 'dashboard:fee_ledger' %}?status=OVERDUE"
+          href="{% url 'finance:fee_ledger' %}?status=OVERDUE"
           class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
         >
           Fee ledger
@@ -43,7 +43,7 @@
     <form
       class="grid gap-3 rounded-md border border-zinc-800 bg-black p-4 sm:grid-cols-2 lg:grid-cols-4"
       method="get"
-      action="{% url 'dashboard:defaulter_report' %}"
+      action="{% url 'finance:defaulter_report' %}"
     >
       <div>
         <label for="filter-grade" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Grade</label>

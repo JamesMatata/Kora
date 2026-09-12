@@ -127,25 +127,28 @@ class SchoolSettingsForm(forms.Form):
     paybill_number = forms.CharField(
         required=False,
         max_length=32,
+        label='Paybill number',
         widget=forms.TextInput(
             attrs={
                 'class': INPUT_CLASS,
-                'placeholder': 'e.g. 562340 or sandbox 174379',
+                'placeholder': 'e.g. 562340',
             }
         ),
-        help_text='Safaricom Paybill / Till shortcode used for STK and C2B.',
+        help_text='Your Safaricom Paybill number for parent fee payments.',
     )
     twilio_phone_number = forms.CharField(
         required=False,
         max_length=16,
+        label='WhatsApp number',
         validators=[E164_OR_BLANK],
         widget=forms.TextInput(
-            attrs={'class': INPUT_CLASS, 'placeholder': '+14155238886'}
+            attrs={'class': INPUT_CLASS, 'placeholder': '+254712345678'}
         ),
-        help_text='WhatsApp sender override. Leave blank to use the platform default.',
+        help_text='Number parents receive school WhatsApp messages from. Leave blank to use the Kora default.',
     )
     mpesa_consumer_key = forms.CharField(
         required=False,
+        label='M-Pesa consumer key',
         widget=forms.PasswordInput(
             attrs={
                 'class': INPUT_CLASS,
@@ -157,6 +160,7 @@ class SchoolSettingsForm(forms.Form):
     )
     mpesa_consumer_secret = forms.CharField(
         required=False,
+        label='M-Pesa consumer secret',
         widget=forms.PasswordInput(
             attrs={
                 'class': INPUT_CLASS,
@@ -168,6 +172,7 @@ class SchoolSettingsForm(forms.Form):
     )
     mpesa_passkey = forms.CharField(
         required=False,
+        label='M-Pesa passkey',
         widget=forms.PasswordInput(
             attrs={
                 'class': INPUT_CLASS,
@@ -179,16 +184,14 @@ class SchoolSettingsForm(forms.Form):
     )
     mpesa_environment = forms.ChoiceField(
         required=False,
+        label='M-Pesa mode',
         choices=(
-            ('', 'Platform default'),
-            ('sandbox', 'Sandbox (testing)'),
-            ('production', 'Production (live Paybill)'),
+            ('', 'Use Kora default'),
+            ('sandbox', 'Testing'),
+            ('production', 'Live'),
         ),
         widget=forms.Select(attrs={'class': INPUT_CLASS}),
-        help_text=(
-            'Which Safaricom Daraja host to call. Production requires live '
-            'credentials from Safaricom — never point sandbox keys at production.'
-        ),
+        help_text='Use Testing while setting up. Switch to Live when Safaricom has approved your Paybill.',
     )
 
     def __init__(self, *args, school=None, **kwargs):

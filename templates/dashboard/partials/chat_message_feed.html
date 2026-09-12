@@ -1,31 +1,28 @@
 {% for msg in chat_messages %}
   {% if msg.sender == 'PARENT' %}
     <div class="flex justify-start">
-      <div class="max-w-[85%] rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2">
-        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-yellow-400">Parent</p>
-        <p class="mt-1 whitespace-pre-wrap text-sm text-zinc-100">{{ msg.body }}</p>
-        <p class="mt-1.5 font-mono text-[10px] text-zinc-600">{{ msg.created_at|date:"M j, H:i" }}</p>
+      <div class="max-w-[min(28rem,85%)] rounded-md bg-zinc-900 px-3 py-2">
+        <p class="whitespace-pre-wrap text-sm text-zinc-100">{{ msg.body }}</p>
+        <p class="mt-1 text-[11px] text-zinc-600">{{ msg.created_at|date:"j M H:i" }}</p>
       </div>
     </div>
   {% elif msg.sender == 'STAFF' %}
     <div class="flex justify-end">
-      <div class="max-w-[85%] rounded-md border border-yellow-400/40 bg-yellow-400/10 px-3 py-2">
-        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-yellow-400">Staff</p>
-        <p class="mt-1 whitespace-pre-wrap text-sm text-zinc-100">{{ msg.body }}</p>
-        <p class="mt-1.5 font-mono text-[10px] text-zinc-500">{{ msg.created_at|date:"M j, H:i" }}</p>
+      <div class="max-w-[min(28rem,85%)] rounded-md bg-yellow-400/15 px-3 py-2">
+        <p class="whitespace-pre-wrap text-sm text-zinc-100">{{ msg.body }}</p>
+        <p class="mt-1 text-right text-[11px] text-zinc-500">{{ msg.created_at|date:"j M H:i" }}</p>
       </div>
     </div>
   {% else %}
     <div class="flex justify-end">
-      <div class="max-w-[85%] rounded-md border border-zinc-800 bg-black px-3 py-2">
-        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Bot</p>
-        <p class="mt-1 whitespace-pre-wrap text-sm text-zinc-300">{{ msg.body }}</p>
-        <p class="mt-1.5 font-mono text-[10px] text-zinc-600">{{ msg.created_at|date:"M j, H:i" }}</p>
+      <div class="max-w-[min(28rem,85%)] rounded-md bg-zinc-950 px-3 py-2 ring-1 ring-zinc-800">
+        <p class="whitespace-pre-wrap text-sm text-zinc-300">{{ msg.body }}</p>
+        <p class="mt-1 text-right text-[11px] text-zinc-600">Bot · {{ msg.created_at|date:"j M H:i" }}</p>
       </div>
     </div>
   {% endif %}
 {% empty %}
-  <div class="flex h-full min-h-[12rem] items-center justify-center px-4 text-center text-sm text-zinc-500">
-    No messages in this conversation yet.
+  <div class="flex flex-1 items-center justify-center py-16 text-sm text-zinc-500">
+    No messages yet.
   </div>
 {% endfor %}

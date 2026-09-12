@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Add fee plan · Kora{% endblock %}
+
+{% block page_title %}Add fee plan{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  <a href="{% url 'finance:term_fee_plans' %}" class="hover:text-yellow-400">Fee plans</a>
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">Add</span>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">Add fee plan</h2>
+        <p class="mt-2 max-w-2xl text-sm text-zinc-400">
+          One active plan per term and grade. A school-wide plan blocks grade plans for that term until deactivated.
+        </p>
+      </div>
+      <a
+        href="{% url 'finance:term_fee_plans' %}"
+        class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+      >
+        Back to fee plans
+      </a>
+    </div>
+
+    <form
+      method="post"
+      action="{% url 'finance:term_fee_plan_create' %}"
+      class="space-y-4"
+      hx-boost="false"
+    >
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="rounded-md border border-red-400/40 bg-red-400/10 px-3 py-2 text-sm text-red-300">
+          {{ form.non_field_errors|striptags }}
+        </div>
+      {% endif %}
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div class="sm:col-span-2">
+          <label for="{{ form.name.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Plan name</label>
+          {{ form.name }}
+          {% if form.name.errors %}<p class="mt-1 text-xs text-red-400">{{ form.name.errors|striptags }}</p>{% endif %}
+        </div>
+        <div>
+          <label for="{{ form.term.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Term</label>
+          {{ form.term }}
+          {% if form.term.errors %}<p class="mt-1 text-xs text-red-400">{{ form.term.errors|striptags }}</p>{% endif %}
+        </div>
+        <div>
+          <label for="{{ form.grade_level.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Grade</label>
+          {{ form.grade_level }}
+          <p class="mt-1 text-xs text-zinc-500">Leave as All grades only if every student shares the same bill.</p>
+          {% if form.grade_level.errors %}<p class="mt-1 text-xs text-red-400">{{ form.grade_level.errors|striptags }}</p>{% endif %}
+        </div>
+        <div>
+          <label for="{{ form.due_date.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Due date</label>
+          {{ form.due_date }}
+          {% if form.due_date.errors %}<p class="mt-1 text-xs text-red-400">{{ form.due_date.errors|striptags }}</p>{% endif %}
+        </div>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        {% for category in categories %}
+          <div>
+            <label for="amount_{{ category.pk }}" class="mb-1 block text-sm text-zinc-400">{{ category.name }}</label>
+            <input
+              id="amount_{{ category.pk }}"
+              name="amount_{{ category.pk }}"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+              class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+            >
+          </div>
+        {% empty %}
+          <p class="text-sm text-zinc-500">No fee categories yet — defaults are created when you open this page.</p>
+        {% endfor %}
+      </div>
+
+      <div class="flex flex-wrap gap-3 pt-2">
+        <button type="submit" class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300">
+          Save fee plan
+        </button>
+        <a
+          href="{% url 'finance:term_fee_plans' %}"
+          class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+        >
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

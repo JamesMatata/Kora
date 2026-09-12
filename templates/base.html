@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-black">
+<html lang="en" class="h-dvh bg-black">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -271,27 +271,32 @@
 
   {% block extra_head %}{% endblock %}
 </head>
-<body class="h-full overflow-hidden font-sans antialiased bg-kora-black text-kora-ink" hx-boost="true">
+<body class="h-dvh overflow-hidden font-sans antialiased bg-kora-black text-kora-ink" hx-boost="true">
   {% include 'includes/navbar.html' %}
 
-  <div class="mt-14 flex h-[calc(100vh-3.5rem)] bg-black">
-    <div id="sidebar-rail" class="sidebar-rail hidden shrink-0 bg-zinc-950 lg:block" aria-hidden="true"></div>
-    {% include 'includes/sidebar.html' %}
+  {# pt-14 clears the fixed navbar; flex-1 child fills the rest of the viewport. #}
+  <div class="flex h-dvh flex-col bg-black pt-14">
+    <div class="flex min-h-0 flex-1">
+      <div id="sidebar-rail" class="sidebar-rail hidden shrink-0 bg-zinc-950 lg:block" aria-hidden="true"></div>
+      {% include 'includes/sidebar.html' %}
 
-    <div class="flex min-h-0 min-w-0 flex-1 flex-col bg-kora-black">
-      <main class="min-h-0 flex-1 overflow-y-auto">
-        <div class="mx-auto w-full max-w-7xl px-4 py-6 lg:px-8">
-          <nav class="mb-5 flex flex-wrap items-center gap-2 font-mono text-xs uppercase tracking-wider text-zinc-500" aria-label="Breadcrumb">
-            {% block breadcrumbs %}
-              <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+      <div class="flex min-h-0 min-w-0 flex-1 flex-col bg-kora-black">
+        <main class="flex min-h-0 flex-1 flex-col {% block main_overflow %}overflow-y-auto{% endblock %}">
+          <div class="{% block main_container_class %}mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-6 lg:px-8{% endblock %}">
+            {% block breadcrumb_nav %}
+            <nav class="mb-4 flex flex-wrap items-center gap-2 font-mono text-xs uppercase tracking-wider text-zinc-500" aria-label="Breadcrumb">
+              {% block breadcrumbs %}
+                <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+              {% endblock %}
+            </nav>
             {% endblock %}
-          </nav>
 
-          {% include 'includes/messages.html' %}
+            {% include 'includes/messages.html' %}
 
-          {% block content %}{% endblock %}
-        </div>
-      </main>
+            {% block content %}{% endblock %}
+          </div>
+        </main>
+      </div>
     </div>
   </div>
 

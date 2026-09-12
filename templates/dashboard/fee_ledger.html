@@ -1,32 +1,34 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Fee ledger · Kora{% endblock %}
+{% block title %}Finance · Kora{% endblock %}
 
-{% block page_title %}Fee ledger{% endblock %}
+{% block page_title %}Finance{% endblock %}
 
 {% block breadcrumbs %}
   <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
   <span class="text-zinc-700">/</span>
-  <span class="text-zinc-300">Fee ledger</span>
+  <span class="text-zinc-300">Finance</span>
 {% endblock %}
 
 {% block content %}
   <div class="space-y-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h2 class="text-2xl font-semibold text-zinc-100">Fee ledger</h2>
+        <h2 class="text-2xl font-semibold text-zinc-100">Finance</h2>
         <p class="mt-2 max-w-2xl text-sm text-zinc-400">
-          Search and filter student invoices, trigger STK pushes, and open WhatsApp conversations.
+          Chase balances, honour payment promises, and follow parents who paused reminders — in one place.
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <a
-          href="{% url 'dashboard:defaulter_report' %}"
-          class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
-        >
-          Defaulters
-        </a>
+        {% if collection_view == 'overdue' %}
+          <a
+            href="{% url 'finance:defaulter_export' %}?q={{ filters.q|urlencode }}&amp;grade={{ filters.grade }}&amp;stream={{ filters.stream }}"
+            class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+          >
+            Export overdue CSV
+          </a>
+        {% endif %}
         <a
           href="{% url 'dashboard:payments_export' %}"
           class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
@@ -34,31 +36,43 @@
           Export payments
         </a>
         <a
-          href="{% url 'dashboard:students_export' %}"
+          href="{% url 'finance:term_fee_plans' %}"
           class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
         >
-          Export students
-        </a>
-        <a
-          href="{% url 'finance:overview' %}"
-          class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
-        >
-          School finance
+          Fee plans
         </a>
       </div>
     </div>
+
+    <div class="flex flex-wrap gap-2 border-b border-zinc-800 pb-3">
+      {% with v=collection_view %}
+        <a href="?view=all&amp;q={{ filters.q|urlencode }}&amp;grade={{ filters.grade }}&amp;stream={{ filters.stream }}" class="rounded-md px-3 py-1.5 text-sm font-semibold {% if v == 'all' %}bg-yellow-400 text-black{% else %}border border-zinc-800 text-zinc-300 hover:border-yellow-400 hover:text-yellow-400{% endif %}">All</a>
+        <a href="?view=overdue&amp;q={{ filters.q|urlencode }}&amp;grade={{ filters.grade }}&amp;stream={{ filters.stream }}" class="rounded-md px-3 py-1.5 text-sm font-semibold {% if v == 'overdue' %}bg-yellow-400 text-black{% else %}border border-zinc-800 text-zinc-300 hover:border-yellow-400 hover:text-yellow-400{% endif %}">Overdue</a>
+        <a href="?view=promised&amp;q={{ filters.q|urlencode }}&amp;grade={{ filters.grade }}&amp;stream={{ filters.stream }}" class="rounded-md px-3 py-1.5 text-sm font-semibold {% if v == 'promised' %}bg-yellow-400 text-black{% else %}border border-zinc-800 text-zinc-300 hover:border-yellow-400 hover:text-yellow-400{% endif %}">Promised</a>
+        <a href="?view=paused&amp;q={{ filters.q|urlencode }}&amp;grade={{ filters.grade }}&amp;stream={{ filters.stream }}" class="rounded-md px-3 py-1.5 text-sm font-semibold {% if v == 'paused' %}bg-yellow-400 text-black{% else %}border border-zinc-800 text-zinc-300 hover:border-yellow-400 hover:text-yellow-400{% endif %}">Paused</a>
+      {% endwith %}
+    </div>
+
+    {% if collection_view == 'overdue' %}
+      <p class="text-sm text-zinc-500">Unpaid invoices past their due date. Promises on those invoices show in the Status column.</p>
+    {% elif collection_view == 'promised' %}
+      <p class="text-sm text-zinc-500">Parents who committed to a pay-by date. Mark honored when money lands, or broken if the date passed with no pay.</p>
+    {% elif collection_view == 'paused' %}
+      <p class="text-sm text-zinc-500">Parents who replied STOP. Automated reminders stay off until you resume them.</p>
+    {% endif %}
 
     <form
       id="ledger-filters"
       class="grid gap-3 rounded-md border border-zinc-800 bg-black p-4 sm:grid-cols-2 lg:grid-cols-4"
       method="get"
-      action="{% url 'dashboard:fee_ledger' %}"
-      hx-get="{% url 'dashboard:fee_ledger_search' %}"
+      action="{% url 'finance:fee_ledger' %}"
+      hx-get="{% url 'finance:fee_ledger_search' %}"
       hx-trigger="change delay:50ms from:select, submit"
       hx-target="#ledger-table-body"
-      hx-include="[name='q'],[name='grade'],[name='stream'],[name='status']"
+      hx-include="[name='q'],[name='grade'],[name='stream'],[name='status'],[name='view']"
       hx-indicator="#search-spinner"
     >
+      <input type="hidden" name="view" value="{{ collection_view }}">
       <div>
         <label for="filter-grade" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Grade</label>
         <select
@@ -90,11 +104,12 @@
         </select>
       </div>
       <div>
-        <label for="filter-status" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Status</label>
+        <label for="filter-status" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Invoice status</label>
         <select
           id="filter-status"
           name="status"
-          class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+          {% if collection_view != 'all' %}disabled{% endif %}
+          class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400 disabled:opacity-50"
         >
           {% for value, label in status_choices %}
             <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
@@ -111,10 +126,10 @@
             value="{{ query }}"
             placeholder="Name or admission number"
             class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 pr-10 text-sm text-zinc-100 outline-none focus:border-yellow-400"
-            hx-get="{% url 'dashboard:fee_ledger_search' %}"
+            hx-get="{% url 'finance:fee_ledger_search' %}"
             hx-trigger="keyup changed delay:300ms, search"
             hx-target="#ledger-table-body"
-            hx-include="#filter-grade,#filter-stream,#filter-status"
+            hx-include="#filter-grade,#filter-stream,#filter-status,[name='view']"
             hx-indicator="#search-spinner"
             autocomplete="off"
           >
@@ -170,7 +185,7 @@
         </div>
         <button type="button" id="stk-close" class="text-zinc-500 hover:text-yellow-400" aria-label="Close">✕</button>
       </div>
-      <form method="post" action="{% url 'dashboard:fee_ledger_stk' %}" class="mt-5 space-y-4" hx-boost="false">
+      <form method="post" action="{% url 'finance:fee_ledger_stk' %}" class="mt-5 space-y-4" hx-boost="false">
         {% csrf_token %}
         <input type="hidden" name="invoice_id" id="stk-invoice-id" value="">
         <div>
