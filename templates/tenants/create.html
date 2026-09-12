@@ -11,13 +11,13 @@
 {% endblock %}
 
 {% block content %}
-  <div class="mx-auto max-w-xl space-y-6">
+  <div class="space-y-6">
     <div>
       <h2 class="text-2xl font-semibold text-zinc-100">Create a new school</h2>
       <p class="mt-2 text-sm text-zinc-400">You will become the first administrator of this workspace.</p>
     </div>
 
-    <form method="post" class="space-y-4 rounded-md border border-zinc-800 bg-black p-5" hx-boost="false">
+    <form method="post" class="space-y-4" hx-boost="false">
       {% csrf_token %}
       {% if form.non_field_errors %}
         <div class="rounded-md border border-red-500 px-3 py-2 text-sm text-red-400">{{ form.non_field_errors }}</div>
@@ -31,9 +31,11 @@
           {% endif %}
         </div>
       {% endfor %}
-      <button type="submit" class="w-full rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
-        Create school &amp; continue
-      </button>
+      <div class="flex flex-wrap gap-3 pt-2">
+        <button type="submit" class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300">
+          Create school &amp; continue
+        </button>
+      </div>
     </form>
   </div>
 {% endblock %}

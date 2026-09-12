@@ -316,15 +316,21 @@ OverviewView = DashboardOverviewView
 
 
 def _fee_ledger_filters(request):
+    view = (request.GET.get('view') or 'all').strip().lower() or 'all'
+    if view not in ('all', 'overdue', 'promised', 'paused'):
+        view = 'all'
     return {
         'q': (request.GET.get('q') or '').strip(),
         'grade': (request.GET.get('grade') or '').strip(),
         'stream': (request.GET.get('stream') or '').strip(),
         'status': (request.GET.get('status') or 'ALL').strip().upper() or 'ALL',
+        'view': view,
     }
 
 
-def _fee_ledger_queryset(school, *, q='', grade='', stream='', status='ALL'):
+def _fee_ledger_queryset(school, *, q='', grade='', stream='', status='ALL', view='all'):
+    from communications.services.whatsapp_delivery import local_today
+
     qs = (
         FeeInvoice.objects.filter(school=school)
         .select_related(
@@ -338,8 +344,41 @@ def _fee_ledger_queryset(school, *, q='', grade='', stream='', status='ALL'):
         qs = qs.filter(student__grade_level_id=grade)
     if stream:
         qs = qs.filter(student__current_stream_id=stream)
-    if status and status != 'ALL':
+
+    today = local_today()
+    if view == 'overdue':
+        qs = qs.exclude(status=FeeInvoice.Status.PAID).filter(due_date__lte=today)
+    elif view == 'promised':
+        qs = qs.filter(
+            promises__status=PaymentPromise.Status.PENDING,
+        ).distinct()
+    elif view == 'paused':
+        from communications.models import ParentContact
+        from communications.services.identity import normalize_incoming_phone
+
+        paused_phones = list(
+            ParentContact.objects.filter(
+                school=school,
+                reminders_paused_at__isnull=False,
+            ).values_list('phone_number', flat=True)
+        )
+        # Match students whose parent_phone normalizes into paused set.
+        candidate_ids = []
+        unpaid = qs.exclude(status=FeeInvoice.Status.PAID).select_related('student')
+        paused_set = set(paused_phones)
+        for inv in unpaid[:2000]:
+            raw = (inv.student.parent_phone or '').strip()
+            if not raw:
+                continue
+            try:
+                if normalize_incoming_phone(raw) in paused_set:
+                    candidate_ids.append(inv.pk)
+            except ValueError:
+                continue
+        qs = qs.filter(pk__in=candidate_ids)
+    elif status and status != 'ALL':
         qs = qs.filter(status=status)
+
     if q:
         qs = qs.filter(
             Q(student__first_name__icontains=q)
@@ -371,6 +410,7 @@ def _conversation_for_student(school, student):
 def _ledger_row_context(school, invoices):
     from communications.models import ParentContact
     from communications.services.identity import normalize_incoming_phone
+    from communications.services.whatsapp_delivery import local_today
 
     rows = []
     phones = {
@@ -379,6 +419,7 @@ def _ledger_row_context(school, invoices):
         if (inv.student.parent_phone or '').strip()
     }
     paused_phones: set[str] = set()
+    paused_by_phone: dict[str, object] = {}
     if phones:
         normalized = []
         for phone in phones:
@@ -387,14 +428,28 @@ def _ledger_row_context(school, invoices):
             except ValueError:
                 continue
         if normalized:
-            paused_phones = set(
-                ParentContact.objects.filter(
-                    school=school,
-                    phone_number__in=normalized,
-                    reminders_paused_at__isnull=False,
-                ).values_list('phone_number', flat=True)
-            )
+            for parent in ParentContact.objects.filter(
+                school=school,
+                phone_number__in=normalized,
+                reminders_paused_at__isnull=False,
+            ):
+                paused_phones.add(parent.phone_number)
+                paused_by_phone[parent.phone_number] = parent
 
+    invoice_ids = [inv.pk for inv in invoices]
+    promises_by_invoice = {}
+    if invoice_ids:
+        for promise in (
+            PaymentPromise.objects.filter(
+                school=school,
+                invoice_id__in=invoice_ids,
+                status=PaymentPromise.Status.PENDING,
+            )
+            .order_by('promised_date', '-created_at')
+        ):
+            promises_by_invoice.setdefault(promise.invoice_id, promise)
+
+    today = local_today()
     for invoice in invoices:
         student = invoice.student
         conversation = _conversation_for_student(school, student)
@@ -416,18 +471,23 @@ def _ledger_row_context(school, invoices):
                 },
             )
         statement_url = reverse(
-            'dashboard:student_fee_statement',
+            'finance:student_fee_statement',
             kwargs={'admission_number': student.admission_number},
         )
         reminders_paused = False
+        paused_parent = None
         raw_phone = (student.parent_phone or '').strip()
         if raw_phone:
             try:
-                reminders_paused = (
-                    normalize_incoming_phone(raw_phone) in paused_phones
-                )
+                norm = normalize_incoming_phone(raw_phone)
+                reminders_paused = norm in paused_phones
+                paused_parent = paused_by_phone.get(norm)
             except ValueError:
                 reminders_paused = False
+        promise = promises_by_invoice.get(invoice.pk)
+        promise_overdue = bool(
+            promise is not None and promise.promised_date < today
+        )
         rows.append(
             {
                 'invoice': invoice,
@@ -437,6 +497,9 @@ def _ledger_row_context(school, invoices):
                 'profile_url': profile_url,
                 'statement_url': statement_url,
                 'reminders_paused': reminders_paused,
+                'paused_parent': paused_parent,
+                'promise': promise,
+                'promise_overdue': promise_overdue,
             }
         )
     return rows
@@ -444,7 +507,7 @@ def _ledger_row_context(school, invoices):
 
 @method_decorator(school_finance_required, name='dispatch')
 class FeeLedgerView(LoginRequiredMixin, View):
-    """Interactive school-wide student fee ledger with HTMX search."""
+    """Collections workbench: invoices, overdue, promises, paused reminders."""
 
     template_name = 'dashboard/fee_ledger.html'
 
@@ -473,8 +536,9 @@ class FeeLedgerView(LoginRequiredMixin, View):
             request,
             self.template_name,
             {
-                'page_title': 'Fee ledger',
+                'page_title': 'Finance',
                 'filters': filters,
+                'collection_view': filters['view'],
                 'status_choices': [
                     ('ALL', 'All statuses'),
                     *FeeInvoice.Status.choices,
@@ -484,6 +548,7 @@ class FeeLedgerView(LoginRequiredMixin, View):
                 'streams_by_grade_json': json.dumps(streams_by_grade),
                 'ledger_rows': _ledger_row_context(school, invoices),
                 'query': filters['q'],
+                'can_manage_promises': True,
             },
         )
 
@@ -507,6 +572,8 @@ class FeeLedgerSearchView(LoginRequiredMixin, View):
             {
                 'ledger_rows': _ledger_row_context(school, invoices),
                 'query': filters['q'],
+                'collection_view': filters['view'],
+                'can_manage_promises': True,
             },
         )
 
@@ -533,17 +600,17 @@ class FeeLedgerStkPushView(LoginRequiredMixin, View):
         )
         if invoice is None:
             messages.error(request, 'Invoice not found.')
-            return redirect('dashboard:fee_ledger')
+            return redirect('finance:fee_ledger')
 
         try:
             amount = Decimal(amount_raw)
         except Exception:
             messages.error(request, 'Enter a valid amount.')
-            return redirect('dashboard:fee_ledger')
+            return redirect('finance:fee_ledger')
 
         if amount <= 0:
             messages.error(request, 'Amount must be greater than zero.')
-            return redirect('dashboard:fee_ledger')
+            return redirect('finance:fee_ledger')
 
         if amount > invoice.balance:
             messages.info(
@@ -564,7 +631,7 @@ class FeeLedgerStkPushView(LoginRequiredMixin, View):
             )
         except (DarajaError, ValueError) as exc:
             messages.error(request, str(exc))
-            return redirect('dashboard:fee_ledger')
+            return redirect('finance:fee_ledger')
 
         if ok:
             messages.success(
@@ -577,7 +644,7 @@ class FeeLedgerStkPushView(LoginRequiredMixin, View):
                 request,
                 payment_tx.result_desc or 'STK push failed.',
             )
-        return redirect('dashboard:fee_ledger')
+        return redirect('finance:fee_ledger')
 
 
 def _defaulter_queryset(school, *, q='', grade='', stream=''):
@@ -710,7 +777,7 @@ class PaymentReceiptWhatsAppView(LoginRequiredMixin, View):
             messages.success(request, 'Receipt sent on WhatsApp.')
         else:
             messages.error(request, detail or 'Could not send WhatsApp receipt.')
-        return redirect('dashboard:payment_receipt', payment_id=payment_tx.pk)
+        return redirect('finance:payment_receipt', payment_id=payment_tx.pk)
 
 
 @method_decorator(school_finance_required, name='dispatch')
@@ -819,7 +886,7 @@ class StudentFeeStatementView(LoginRequiredMixin, View):
         if credit is None or credit.balance <= 0:
             messages.error(request, 'No fee credit available for this student.')
             return redirect(
-                'dashboard:student_fee_statement',
+                'finance:student_fee_statement',
                 admission_number=admission_number,
             )
 
@@ -860,7 +927,7 @@ class StudentFeeStatementView(LoginRequiredMixin, View):
         else:
             messages.error(request, 'Unknown credit action.')
         return redirect(
-            'dashboard:student_fee_statement',
+            'finance:student_fee_statement',
             admission_number=admission_number,
         )
 
@@ -896,13 +963,13 @@ class InvoiceManualPaymentView(LoginRequiredMixin, View):
         except Exception:
             messages.error(request, 'Enter a valid amount.')
             return redirect(
-                'dashboard:student_fee_statement',
+                'finance:student_fee_statement',
                 admission_number=admission_number,
             )
         if amount <= 0:
             messages.error(request, 'Amount must be greater than zero.')
             return redirect(
-                'dashboard:student_fee_statement',
+                'finance:student_fee_statement',
                 admission_number=admission_number,
             )
 
@@ -952,7 +1019,7 @@ class InvoiceManualPaymentView(LoginRequiredMixin, View):
             msg += f' KES {allocation.credit_added} held as credit.'
         messages.success(request, msg)
         return redirect(
-            'dashboard:student_fee_statement',
+            'finance:student_fee_statement',
             admission_number=admission_number,
         )
 
@@ -984,7 +1051,7 @@ class InvoiceDiscountView(LoginRequiredMixin, View):
         except Exception:
             messages.error(request, 'Enter a valid discount amount.')
             return redirect(
-                'dashboard:student_fee_statement',
+                'finance:student_fee_statement',
                 admission_number=student.admission_number,
             )
 
@@ -993,7 +1060,7 @@ class InvoiceDiscountView(LoginRequiredMixin, View):
         except ValidationError as exc:
             messages.error(request, str(exc))
             return redirect(
-                'dashboard:student_fee_statement',
+                'finance:student_fee_statement',
                 admission_number=student.admission_number,
             )
 
@@ -1022,48 +1089,19 @@ class InvoiceDiscountView(LoginRequiredMixin, View):
             'Waiver applied.' if waive else 'Discount / bursary applied.',
         )
         return redirect(
-            'dashboard:student_fee_statement',
+            'finance:student_fee_statement',
             admission_number=student.admission_number,
         )
 
 
 @method_decorator(school_finance_required, name='dispatch')
 class DefaulterReportView(LoginRequiredMixin, View):
-    """Students with overdue unpaid invoices."""
-
-    template_name = 'dashboard/defaulter_report.html'
+    """Legacy URL — collections Overdue tab is the workbench now."""
 
     def get(self, request):
-        school = _ensure_school(request)
-        if school is None:
-            return redirect('tenants:select')
-
-        filters = {
-            'q': (request.GET.get('q') or '').strip(),
-            'grade': (request.GET.get('grade') or '').strip(),
-            'stream': (request.GET.get('stream') or '').strip(),
-        }
-        invoices = list(_defaulter_queryset(school, **filters)[:500])
-        total_arrears = sum((inv.balance for inv in invoices), Decimal('0.00'))
-        grades = GradeLevel.objects.filter(school=school).order_by('order', 'name')
-        streams = (
-            ClassStream.objects.filter(school=school)
-            .select_related('grade_level')
-            .order_by('grade_level__order', 'name')
-        )
-        return render(
-            request,
-            self.template_name,
-            {
-                'page_title': 'Defaulters',
-                'filters': filters,
-                'grades': grades,
-                'streams': streams,
-                'ledger_rows': _ledger_row_context(school, invoices),
-                'total_arrears': total_arrears,
-                'query': filters['q'],
-            },
-        )
+        params = request.GET.copy()
+        params['view'] = 'overdue'
+        return redirect(f"{reverse('finance:fee_ledger')}?{params.urlencode()}")
 
 
 @method_decorator(school_finance_required, name='dispatch')
@@ -1130,9 +1168,16 @@ class PausedRemindersView(LoginRequiredMixin, View):
         if school is None:
             return redirect('tenants:select')
 
+        # Finance workbench owns this for staff acting as admin/bursar.
+        # Dual-role users in Teacher mode keep this dedicated page.
+        if getattr(request, 'acting_as_admin', False) or getattr(
+            request, 'acting_as_bursar', False
+        ):
+            return redirect(f"{reverse('finance:fee_ledger')}?view=paused")
+
         can_resume = bool(
-            getattr(request, 'is_current_school_admin', False)
-            or getattr(request, 'is_current_school_bursar', False)
+            getattr(request, 'acting_as_admin', False)
+            or getattr(request, 'acting_as_bursar', False)
         )
         parents = list(
             ParentContact.objects.filter(
@@ -1176,15 +1221,18 @@ class PausedRemindersView(LoginRequiredMixin, View):
             return redirect('tenants:select')
 
         can_resume = bool(
-            getattr(request, 'is_current_school_admin', False)
-            or getattr(request, 'is_current_school_bursar', False)
+            getattr(request, 'acting_as_admin', False)
+            or getattr(request, 'acting_as_bursar', False)
         )
         if not can_resume:
             messages.error(
                 request,
                 'Only an administrator or bursar can resume fee reminders.',
             )
-            return redirect('dashboard:paused_reminders')
+            next_url = (request.POST.get('next') or '').strip()
+            if next_url.startswith('/'):
+                return redirect(next_url)
+            return redirect('finance:paused_reminders')
 
         parent_id = (request.POST.get('parent_id') or '').strip()
         parent = get_object_or_404(
@@ -1194,7 +1242,10 @@ class PausedRemindersView(LoginRequiredMixin, View):
         )
         if parent.reminders_paused_at is None:
             messages.info(request, 'Reminders are already active for that parent.')
-            return redirect('dashboard:paused_reminders')
+            next_url = (request.POST.get('next') or '').strip()
+            if next_url.startswith('/'):
+                return redirect(next_url)
+            return redirect('finance:paused_reminders')
 
         from tenants.audit import log_audit_event
         from tenants.models import AuditEvent
@@ -1222,79 +1273,34 @@ class PausedRemindersView(LoginRequiredMixin, View):
             request,
             f'Reminders resumed for {parent.parent_name or parent.phone_number}.',
         )
-        return redirect('dashboard:paused_reminders')
+        next_url = (request.POST.get('next') or '').strip()
+        if next_url.startswith('/'):
+            return redirect(next_url)
+        return redirect('finance:paused_reminders')
 
 
 @method_decorator(school_finance_required, name='dispatch')
 class PaymentPromisesView(LoginRequiredMixin, View):
-    """Staff list of parent payment promises with status updates."""
-
-    template_name = 'dashboard/payment_promises.html'
+    """Promise create/status updates (list UI lives on Collections → Promised)."""
 
     def get(self, request):
         school = _ensure_school(request)
         if school is None:
             return redirect('tenants:select')
-
-        status = (request.GET.get('status') or 'PENDING').strip().upper()
-        qs = (
-            PaymentPromise.objects.filter(school=school)
-            .select_related(
-                'invoice',
-                'invoice__student',
-                'invoice__student__current_stream',
-            )
-            .order_by('promised_date', '-created_at')
-        )
-        if status and status != 'ALL':
-            qs = qs.filter(status=status)
-        today = timezone.localdate()
-        rows = []
-        for promise in qs[:300]:
-            rows.append(
-                {
-                    'promise': promise,
-                    'student': promise.invoice.student,
-                    'invoice': promise.invoice,
-                    'is_overdue': (
-                        promise.status == PaymentPromise.Status.PENDING
-                        and promise.promised_date < today
-                    ),
-                    'statement_url': reverse(
-                        'dashboard:student_fee_statement',
-                        kwargs={
-                            'admission_number': promise.invoice.student.admission_number
-                        },
-                    ),
-                }
-            )
-        open_invoices = (
-            FeeInvoice.objects.filter(school=school)
-            .exclude(status=FeeInvoice.Status.PAID)
-            .select_related('student')
-            .order_by('student__admission_number', '-due_date')[:200]
-        )
-        return render(
-            request,
-            self.template_name,
-            {
-                'page_title': 'Payment promises',
-                'rows': rows,
-                'status_filter': status,
-                'status_choices': [
-                    ('PENDING', 'Pending'),
-                    ('HONORED', 'Honored'),
-                    ('BROKEN', 'Broken'),
-                    ('ALL', 'All'),
-                ],
-                'open_invoices': open_invoices,
-            },
-        )
+        params = request.GET.copy()
+        params['view'] = 'promised'
+        return redirect(f"{reverse('finance:fee_ledger')}?{params.urlencode()}")
 
     def post(self, request):
         school = _ensure_school(request)
         if school is None:
             return redirect('tenants:select')
+
+        def _done():
+            next_url = (request.POST.get('next') or '').strip()
+            if next_url.startswith('/'):
+                return redirect(next_url)
+            return redirect(f"{reverse('finance:fee_ledger')}?view=promised")
 
         action = (request.POST.get('action') or '').strip()
 
@@ -1309,10 +1315,10 @@ class PaymentPromisesView(LoginRequiredMixin, View):
                 ).date()
             except Exception:
                 messages.error(request, 'Enter a valid amount and date.')
-                return redirect('dashboard:payment_promises')
+                return _done()
             if amount <= 0:
                 messages.error(request, 'Amount must be greater than zero.')
-                return redirect('dashboard:payment_promises')
+                return _done()
             PaymentPromise.objects.create(
                 school=school,
                 invoice=invoice,
@@ -1321,7 +1327,7 @@ class PaymentPromisesView(LoginRequiredMixin, View):
                 status=PaymentPromise.Status.PENDING,
             )
             messages.success(request, 'Payment promise recorded.')
-            return redirect('dashboard:payment_promises')
+            return _done()
 
         promise = get_object_or_404(
             PaymentPromise,
@@ -1343,8 +1349,7 @@ class PaymentPromisesView(LoginRequiredMixin, View):
         else:
             messages.error(request, 'Unknown action.')
 
-        status = (request.POST.get('return_status') or 'PENDING').strip()
-        return redirect(f"{reverse('dashboard:payment_promises')}?status={status}")
+        return _done()
 
 
 @method_decorator(school_admin_required, name='dispatch')
@@ -1506,6 +1511,12 @@ def _get_chat_session(school, session_id):
 
 
 def _chat_thread_rows(school, sessions):
+    status_labels = {
+        ConversationSession.Status.BOT_ACTIVE: 'Bot',
+        ConversationSession.Status.ESCALATED_PENDING: 'Needs you',
+        ConversationSession.Status.STAFF_ACTIVE: 'Staff',
+        ConversationSession.Status.CLOSED: 'Closed',
+    }
     rows = []
     for session in sessions:
         last_msg = (
@@ -1514,6 +1525,17 @@ def _chat_thread_rows(school, sessions):
             .first()
         )
         student = session.active_student
+        phone = session.parent_contact.phone_number
+        parent_name = (session.parent_contact.parent_name or '').strip()
+        if student is not None:
+            title = student.full_name
+            detail = phone
+        elif parent_name and parent_name != phone:
+            title = parent_name
+            detail = phone
+        else:
+            title = phone
+            detail = ''
         excerpt = ''
         if last_msg is not None:
             excerpt = (last_msg.body or '').strip()
@@ -1524,15 +1546,9 @@ def _chat_thread_rows(school, sessions):
         rows.append(
             {
                 'session': session,
-                'student_name': (
-                    student.full_name
-                    if student is not None
-                    else (
-                        session.parent_contact.parent_name
-                        or session.parent_contact.phone_number
-                    )
-                ),
-                'phone': session.parent_contact.phone_number,
+                'title': title,
+                'detail': detail,
+                'status_label': status_labels.get(session.status, session.status),
                 'excerpt': excerpt or 'No messages yet',
                 'timestamp': session.last_message_at or session.created_at,
             }
@@ -1541,11 +1557,23 @@ def _chat_thread_rows(school, sessions):
 
 
 def _chat_console_context(request, school, *, tab='escalated', session=None):
+    search_q = (request.GET.get('q') or '').strip()
     base_qs = _chat_session_queryset(school).order_by(
         '-last_message_at',
         '-created_at',
     )
     filtered_qs, active_tab = _chat_tab_filter(base_qs, tab)
+    if search_q:
+        # Search open threads across tabs so a wrong tab doesn't hide matches.
+        filtered_qs = base_qs.exclude(
+            status=ConversationSession.Status.CLOSED
+        ).filter(
+            Q(parent_contact__phone_number__icontains=search_q)
+            | Q(parent_contact__parent_name__icontains=search_q)
+            | Q(active_student__first_name__icontains=search_q)
+            | Q(active_student__last_name__icontains=search_q)
+            | Q(active_student__admission_number__icontains=search_q)
+        )
     sessions = list(filtered_qs[:80])
     thread_rows = _chat_thread_rows(school, sessions)
 
@@ -1563,8 +1591,9 @@ def _chat_console_context(request, school, *, tab='escalated', session=None):
         )
 
     return {
-        'page_title': 'WhatsApp console',
+        'page_title': 'WhatsApp',
         'active_tab': active_tab,
+        'search_q': search_q,
         'thread_rows': thread_rows,
         'session': session,
         'chat_messages': chat_messages,
@@ -1747,19 +1776,14 @@ class SchoolSettingsView(LoginRequiredMixin, View):
     template_name = 'dashboard/school_settings.html'
 
     def _context(self, request, school, *, form=None):
-        from django.conf import settings as dj_settings
         from finance.services.reminder_service import FeeReminderService
         from tenants.ops import latest_ops_job
 
         years = list(
             AcademicYear.objects.filter(school=school).order_by('-is_current', '-name')
         )
-        domain = (getattr(dj_settings, 'SITE_DOMAIN', '') or '').rstrip('/')
         reminder_preview = FeeReminderService().preview_overdue_reminders(school)
         last_reminders = latest_ops_job('fee_reminders', school=school)
-        last_backup = latest_ops_job('backup_database')
-        last_weekly_nudge = latest_ops_job('weekly_teacher_reminders', school=school)
-        from finance.services.daraja import resolve_daraja_environment
 
         def _ops_meta(run, *, stale_hours=36):
             if run is None:
@@ -1776,36 +1800,7 @@ class SchoolSettingsView(LoginRequiredMixin, View):
             'form': form or SchoolSettingsForm(school=school),
             'academic_years': years,
             'reminder_preview': reminder_preview,
-            'last_reminders_run': last_reminders,
-            'last_backup_run': last_backup,
-            'last_weekly_nudge_run': last_weekly_nudge,
             'ops_reminders': _ops_meta(last_reminders),
-            'ops_backup': _ops_meta(last_backup, stale_hours=48),
-            'ops_weekly_nudge': _ops_meta(last_weekly_nudge, stale_hours=8 * 24),
-            'daraja_environment': resolve_daraja_environment(school),
-            'daraja_platform_environment': (
-                getattr(dj_settings, 'DARAJA_ENVIRONMENT', 'sandbox') or 'sandbox'
-            ),
-            'has_mpesa_keys': bool(
-                school.mpesa_consumer_key
-                or school.mpesa_consumer_secret
-                or school.mpesa_passkey
-            ),
-            'c2b_validation_url': (
-                f'{domain}/api/v1/finance/daraja/c2b/validation/?tenant_id={school.id}'
-                if domain
-                else ''
-            ),
-            'c2b_confirmation_url': (
-                f'{domain}/api/v1/finance/daraja/c2b/confirmation/?tenant_id={school.id}'
-                if domain
-                else ''
-            ),
-            'stk_callback_url': (
-                f'{domain}/api/v1/finance/daraja/callback/?tenant_id={school.id}'
-                if domain
-                else ''
-            ),
         }
 
     def get(self, request):
@@ -1869,8 +1864,7 @@ class SchoolSettingsView(LoginRequiredMixin, View):
             if ok:
                 messages.success(
                     request,
-                    'Paybill C2B URLs registered with Safaricom. '
-                    'Parents can pay using the student admission number as account.',
+                    'Paybill payments connected. Parents can pay using the student admission number as the account.',
                 )
             else:
                 desc = (
@@ -1879,7 +1873,7 @@ class SchoolSettingsView(LoginRequiredMixin, View):
                     or payload.get('error')
                     or str(payload)
                 )
-                messages.error(request, f'C2B registration failed: {desc}')
+                messages.error(request, f'Could not connect Paybill payments: {desc}')
             return redirect('dashboard:school_settings')
 
         if action == 'run_fee_reminders':
@@ -3325,7 +3319,7 @@ class StreamFinanceView(LoginRequiredMixin, View):
             request,
             'Class fee collections now use the Fee ledger. Record cash on the student statement.',
         )
-        return redirect(f"{reverse('dashboard:fee_ledger')}?stream={stream.pk}")
+        return redirect(f"{reverse('finance:fee_ledger')}?stream={stream.pk}")
 
     def post(self, request, stream_slug):
         school = _ensure_school(request)
@@ -3338,7 +3332,7 @@ class StreamFinanceView(LoginRequiredMixin, View):
             request,
             'Legacy stream payments are disabled. Open the student fee statement to record cash.',
         )
-        return redirect(f"{reverse('dashboard:fee_ledger')}?stream={stream.pk}")
+        return redirect(f"{reverse('finance:fee_ledger')}?stream={stream.pk}")
 
 
 def _redirect_to_grade_default_stream(request, school, grade_slug, target):

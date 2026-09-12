@@ -181,4 +181,38 @@ class TermFeePlanForm(forms.Form):
         if not line_items:
             raise ValidationError('Enter at least one vote-head amount greater than 0.')
         cleaned['line_items'] = line_items
+
+        if self.school is not None and cleaned.get('term'):
+            from finance.models import TermFeePlan
+
+            term = cleaned['term']
+            grade = cleaned.get('grade_level')
+            conflicts = TermFeePlan.objects.filter(
+                school=self.school,
+                is_active=True,
+                term__iexact=term,
+            )
+            if grade is None:
+                # School-wide plan conflicts with any active plan for that term.
+                if conflicts.exists():
+                    raise ValidationError(
+                        'An active fee plan already exists for this term '
+                        '(school-wide or for a grade). Deactivate it first, '
+                        'or create a plan for a specific grade only after '
+                        'removing the school-wide plan.'
+                    )
+            else:
+                # Grade plan conflicts with same-grade or school-wide active plan.
+                same_grade = conflicts.filter(grade_level=grade).exists()
+                school_wide = conflicts.filter(grade_level__isnull=True).exists()
+                if same_grade:
+                    raise ValidationError(
+                        f'An active fee plan already exists for {grade.name} '
+                        f'in “{term}”. Deactivate it before creating another.'
+                    )
+                if school_wide:
+                    raise ValidationError(
+                        f'A school-wide active plan already covers “{term}”. '
+                        'Deactivate that plan before adding a grade-specific one.'
+                    )
         return cleaned

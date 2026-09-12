@@ -6,7 +6,12 @@
       {% if row.reminders_paused %}
         <p class="mt-1 font-mono text-[10px] uppercase tracking-wider text-red-400">
           Reminders paused
-          <a href="{% url 'dashboard:paused_reminders' %}" class="ml-1 text-zinc-500 hover:text-yellow-400 normal-case tracking-normal">View</a>
+        </p>
+      {% endif %}
+      {% if row.promise %}
+        <p class="mt-1 text-xs {% if row.promise_overdue %}text-red-400{% else %}text-zinc-400{% endif %}">
+          Promised KES {{ row.promise.promised_amount }} by {{ row.promise.promised_date|date:"d M Y" }}
+          {% if row.promise_overdue %}<span class="font-mono uppercase tracking-wider"> · overdue</span>{% endif %}
         </p>
       {% endif %}
     </td>
@@ -42,6 +47,11 @@
       <span class="font-mono text-[10px] uppercase tracking-wider {% if row.invoice.status == 'PAID' %}text-yellow-400{% elif row.invoice.status == 'OVERDUE' %}text-red-400{% else %}text-zinc-400{% endif %}">
         {{ row.invoice.get_status_display }}
       </span>
+      {% if row.promise %}
+        <p class="mt-1 font-mono text-[10px] uppercase tracking-wider {% if row.promise_overdue %}text-red-400{% else %}text-zinc-500{% endif %}">
+          Promise pending
+        </p>
+      {% endif %}
     </td>
     <td class="px-4 py-3">
       <div class="flex flex-wrap gap-2">
@@ -79,6 +89,23 @@
         {% else %}
           <span class="rounded-md border border-zinc-900 px-2 py-1 text-xs text-zinc-600" title="No active conversation">WhatsApp</span>
         {% endif %}
+        {% if can_manage_promises and row.promise %}
+          <form method="post" action="{% url 'finance:payment_promises' %}" class="inline" hx-boost="false">
+            {% csrf_token %}
+            <input type="hidden" name="promise_id" value="{{ row.promise.pk }}">
+            <input type="hidden" name="next" value="{% url 'finance:fee_ledger' %}?view={{ collection_view|default:'promised' }}">
+            <button type="submit" name="action" value="honor" class="rounded-md border border-zinc-800 px-2 py-1 text-xs text-zinc-300 hover:border-yellow-400 hover:text-yellow-400">Honored</button>
+            <button type="submit" name="action" value="break" class="rounded-md border border-zinc-800 px-2 py-1 text-xs text-zinc-500 hover:border-red-400 hover:text-red-400">Broken</button>
+          </form>
+        {% endif %}
+        {% if can_manage_promises and row.paused_parent %}
+          <form method="post" action="{% url 'finance:paused_reminders' %}" class="inline" hx-boost="false">
+            {% csrf_token %}
+            <input type="hidden" name="parent_id" value="{{ row.paused_parent.pk }}">
+            <input type="hidden" name="next" value="{% url 'finance:fee_ledger' %}?view=paused">
+            <button type="submit" name="action" value="resume" class="rounded-md border border-zinc-800 px-2 py-1 text-xs text-zinc-300 hover:border-yellow-400 hover:text-yellow-400">Resume reminders</button>
+          </form>
+        {% endif %}
       </div>
     </td>
   </tr>
@@ -87,6 +114,12 @@
     <td colspan="9" class="px-4 py-8 text-center text-sm text-zinc-500">
       {% if query %}
         No invoices match “{{ query }}”.
+      {% elif collection_view == 'overdue' %}
+        No overdue balances for these filters.
+      {% elif collection_view == 'promised' %}
+        No pending payment promises.
+      {% elif collection_view == 'paused' %}
+        No invoices for parents who paused reminders.
       {% else %}
         No fee invoices match these filters.
       {% endif %}

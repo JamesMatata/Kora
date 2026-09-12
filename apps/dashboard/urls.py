@@ -1,4 +1,5 @@
 from django.urls import path
+from django.views.generic import RedirectView
 
 from communications.views import (
     BroadcastCreateView,
@@ -18,13 +19,8 @@ from dashboard.views import (
     ClassStreamAssignmentView,
     ConversationConsoleView,
     DashboardOverviewView,
-    DefaulterExportView,
-    DefaulterReportView,
     ExecutiveReportDetailView,
     ExecutiveReportListView,
-    FeeLedgerSearchView,
-    FeeLedgerStkPushView,
-    FeeLedgerView,
     GradeCreateView,
     GradeEditView,
     GradeFinanceView,
@@ -33,15 +29,8 @@ from dashboard.views import (
     GradeStudentEditView,
     GradeStudentImportTemplateView,
     GradeStudentImportView,
-    InvoiceDiscountView,
-    InvoiceManualPaymentView,
     OnboardingChecklistView,
-    PaymentPromisesView,
-    PaymentReceiptPdfView,
-    PaymentReceiptView,
-    PaymentReceiptWhatsAppView,
     PaymentsExportView,
-    PausedRemindersView,
     SchoolSettingsView,
     StreamAttendanceView,
     StreamCreateView,
@@ -51,7 +40,6 @@ from dashboard.views import (
     StreamRosterView,
     StudentCreateView,
     StudentEditView,
-    StudentFeeStatementView,
     StudentImportTemplateView,
     StudentImportView,
     StudentsExportView,
@@ -62,155 +50,12 @@ from dashboard.views import (
 app_name = 'dashboard'
 
 urlpatterns = [
-    path('app/', DashboardOverviewView.as_view(), name='overview'),
-    path(
-        'dashboard/settings/',
-        SchoolSettingsView.as_view(),
-        name='school_settings',
-    ),
-    path(
-        'dashboard/onboarding/',
-        OnboardingChecklistView.as_view(),
-        name='onboarding',
-    ),
-    path(
-        'dashboard/audit/',
-        AuditLogView.as_view(),
-        name='audit_log',
-    ),
-    path('dashboard/fees/', FeeLedgerView.as_view(), name='fee_ledger'),
-    path(
-        'dashboard/fees/search/',
-        FeeLedgerSearchView.as_view(),
-        name='fee_ledger_search',
-    ),
-    path(
-        'dashboard/fees/stk/',
-        FeeLedgerStkPushView.as_view(),
-        name='fee_ledger_stk',
-    ),
-    path(
-        'dashboard/fees/defaulters/',
-        DefaulterReportView.as_view(),
-        name='defaulter_report',
-    ),
-    path(
-        'dashboard/fees/promises/',
-        PaymentPromisesView.as_view(),
-        name='payment_promises',
-    ),
-    path(
-        'dashboard/fees/paused-reminders/',
-        PausedRemindersView.as_view(),
-        name='paused_reminders',
-    ),
-    path(
-        'dashboard/fees/defaulters/export/',
-        DefaulterExportView.as_view(),
-        name='defaulter_export',
-    ),
-    path(
-        'dashboard/exports/students/',
-        StudentsExportView.as_view(),
-        name='students_export',
-    ),
-    path(
-        'dashboard/exports/payments/',
-        PaymentsExportView.as_view(),
-        name='payments_export',
-    ),
-    path(
-        'dashboard/fees/students/<str:admission_number>/statement/',
-        StudentFeeStatementView.as_view(),
-        name='student_fee_statement',
-    ),
-    path(
-        'dashboard/fees/students/<str:admission_number>/discount/',
-        InvoiceDiscountView.as_view(),
-        name='invoice_discount',
-    ),
-    path(
-        'dashboard/fees/students/<str:admission_number>/manual-payment/',
-        InvoiceManualPaymentView.as_view(),
-        name='invoice_manual_payment',
-    ),
-    path(
-        'dashboard/fees/receipts/<int:payment_id>/',
-        PaymentReceiptView.as_view(),
-        name='payment_receipt',
-    ),
-    path(
-        'dashboard/fees/receipts/<int:payment_id>/pdf/',
-        PaymentReceiptPdfView.as_view(),
-        name='payment_receipt_pdf',
-    ),
-    path(
-        'dashboard/fees/receipts/<int:payment_id>/whatsapp/',
-        PaymentReceiptWhatsAppView.as_view(),
-        name='payment_receipt_whatsapp',
-    ),
-    path(
-        'dashboard/broadcasts/',
-        BroadcastListView.as_view(),
-        name='broadcast_list',
-    ),
-    path(
-        'dashboard/broadcasts/create/',
-        BroadcastCreateView.as_view(),
-        name='broadcast_create',
-    ),
-    path(
-        'dashboard/broadcasts/preview/',
-        BroadcastPreviewView.as_view(),
-        name='broadcast_preview',
-    ),
-    path(
-        'dashboard/reports/',
-        ExecutiveReportListView.as_view(),
-        name='report_list',
-    ),
-    path(
-        'dashboard/reports/<int:report_id>/',
-        ExecutiveReportDetailView.as_view(),
-        name='report_detail',
-    ),
-    path('dashboard/chats/', ChatConsoleView.as_view(), name='chat_console'),
-    path(
-        'dashboard/chats/<int:session_id>/',
-        ChatConsoleView.as_view(),
-        name='chat_console_session',
-    ),
-    path(
-        'dashboard/chats/<int:session_id>/messages/',
-        ChatMessagesPartialView.as_view(),
-        name='chat_messages',
-    ),
-    path(
-        'dashboard/chats/<int:session_id>/send/',
-        ChatSendView.as_view(),
-        name='chat_send',
-    ),
-    path(
-        'dashboard/chats/<int:session_id>/claim/',
-        ChatClaimView.as_view(),
-        name='chat_claim',
-    ),
-    path(
-        'dashboard/chats/<int:session_id>/release/',
-        ChatReleaseView.as_view(),
-        name='chat_release',
-    ),
-    path(
-        'dashboard/chats/<int:session_id>/resolve/',
-        ChatResolveView.as_view(),
-        name='chat_resolve',
-    ),
-    path(
-        'dashboard/conversations/<int:session_id>/',
-        ConversationConsoleView.as_view(),
-        name='conversation_console',
-    ),
-    path('teachers/', TeacherManagementView.as_view(), name='teachers'),
+    # Canonical paths
+    path('overview/', DashboardOverviewView.as_view(), name='overview'),
+    path('settings/', SchoolSettingsView.as_view(), name='school_settings'),
+    path('onboarding/', OnboardingChecklistView.as_view(), name='onboarding'),
+    path('audit/', AuditLogView.as_view(), name='audit_log'),
+    path('staff/', TeacherManagementView.as_view(), name='teachers'),
     path('classes/', ClassStreamAssignmentView.as_view(), name='classes'),
     path('classes/new/', GradeCreateView.as_view(), name='grade_create'),
     path(
@@ -312,5 +157,197 @@ urlpatterns = [
         'streams/<slug:stream_slug>/import/template/',
         StudentImportTemplateView.as_view(),
         name='student_import_template',
+    ),
+    path('broadcasts/', BroadcastListView.as_view(), name='broadcast_list'),
+    path(
+        'broadcasts/create/',
+        BroadcastCreateView.as_view(),
+        name='broadcast_create',
+    ),
+    path(
+        'broadcasts/preview/',
+        BroadcastPreviewView.as_view(),
+        name='broadcast_preview',
+    ),
+    path('reports/', ExecutiveReportListView.as_view(), name='report_list'),
+    path(
+        'reports/<int:report_id>/',
+        ExecutiveReportDetailView.as_view(),
+        name='report_detail',
+    ),
+    path('whatsapp/', ChatConsoleView.as_view(), name='chat_console'),
+    path(
+        'whatsapp/<int:session_id>/',
+        ChatConsoleView.as_view(),
+        name='chat_console_session',
+    ),
+    path(
+        'whatsapp/<int:session_id>/messages/',
+        ChatMessagesPartialView.as_view(),
+        name='chat_messages',
+    ),
+    path(
+        'whatsapp/<int:session_id>/send/',
+        ChatSendView.as_view(),
+        name='chat_send',
+    ),
+    path(
+        'whatsapp/<int:session_id>/claim/',
+        ChatClaimView.as_view(),
+        name='chat_claim',
+    ),
+    path(
+        'whatsapp/<int:session_id>/release/',
+        ChatReleaseView.as_view(),
+        name='chat_release',
+    ),
+    path(
+        'whatsapp/<int:session_id>/resolve/',
+        ChatResolveView.as_view(),
+        name='chat_resolve',
+    ),
+    path(
+        'conversations/<int:session_id>/',
+        ConversationConsoleView.as_view(),
+        name='conversation_console',
+    ),
+    path(
+        'exports/students/',
+        StudentsExportView.as_view(),
+        name='students_export',
+    ),
+    path(
+        'exports/payments/',
+        PaymentsExportView.as_view(),
+        name='payments_export',
+    ),
+    # Legacy path redirects (bookmarks / old links)
+    path(
+        'app/',
+        RedirectView.as_view(
+            pattern_name='dashboard:overview',
+            permanent=False,
+            query_string=True,
+        ),
+    ),
+    path(
+        'teachers/',
+        RedirectView.as_view(
+            pattern_name='dashboard:teachers',
+            permanent=False,
+            query_string=True,
+        ),
+    ),
+    path(
+        'dashboard/settings/',
+        RedirectView.as_view(
+            pattern_name='dashboard:school_settings',
+            permanent=False,
+            query_string=True,
+        ),
+    ),
+    path(
+        'dashboard/onboarding/',
+        RedirectView.as_view(
+            pattern_name='dashboard:onboarding',
+            permanent=False,
+            query_string=True,
+        ),
+    ),
+    path(
+        'dashboard/audit/',
+        RedirectView.as_view(
+            pattern_name='dashboard:audit_log',
+            permanent=False,
+            query_string=True,
+        ),
+    ),
+    path(
+        'dashboard/fees/',
+        RedirectView.as_view(
+            pattern_name='finance:fee_ledger',
+            permanent=False,
+            query_string=True,
+        ),
+    ),
+    path(
+        'dashboard/fees/<path:rest>',
+        RedirectView.as_view(
+            url='/finance/%(rest)s',
+            permanent=False,
+            query_string=True,
+        ),
+    ),
+    path(
+        'dashboard/broadcasts/',
+        RedirectView.as_view(
+            pattern_name='dashboard:broadcast_list',
+            permanent=False,
+            query_string=True,
+        ),
+    ),
+    path(
+        'dashboard/broadcasts/<path:rest>',
+        RedirectView.as_view(
+            url='/broadcasts/%(rest)s',
+            permanent=False,
+            query_string=True,
+        ),
+    ),
+    path(
+        'dashboard/reports/',
+        RedirectView.as_view(
+            pattern_name='dashboard:report_list',
+            permanent=False,
+            query_string=True,
+        ),
+    ),
+    path(
+        'dashboard/reports/<path:rest>',
+        RedirectView.as_view(
+            url='/reports/%(rest)s',
+            permanent=False,
+            query_string=True,
+        ),
+    ),
+    path(
+        'dashboard/chats/',
+        RedirectView.as_view(
+            pattern_name='dashboard:chat_console',
+            permanent=False,
+            query_string=True,
+        ),
+    ),
+    path(
+        'dashboard/chats/<path:rest>',
+        RedirectView.as_view(
+            url='/whatsapp/%(rest)s',
+            permanent=False,
+            query_string=True,
+        ),
+    ),
+    path(
+        'dashboard/conversations/<int:session_id>/',
+        RedirectView.as_view(
+            pattern_name='dashboard:conversation_console',
+            permanent=False,
+            query_string=True,
+        ),
+    ),
+    path(
+        'dashboard/exports/students/',
+        RedirectView.as_view(
+            pattern_name='dashboard:students_export',
+            permanent=False,
+            query_string=True,
+        ),
+    ),
+    path(
+        'dashboard/exports/payments/',
+        RedirectView.as_view(
+            pattern_name='dashboard:payments_export',
+            permanent=False,
+            query_string=True,
+        ),
     ),
 ]

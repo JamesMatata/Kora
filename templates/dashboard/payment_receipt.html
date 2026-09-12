@@ -7,7 +7,7 @@
 {% block breadcrumbs %}
   <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
   <span class="text-zinc-700">/</span>
-  <a href="{% url 'dashboard:fee_ledger' %}" class="hover:text-yellow-400">Fee ledger</a>
+  <a href="{% url 'finance:fee_ledger' %}" class="hover:text-yellow-400">Finance</a>
   <span class="text-zinc-700">/</span>
   <span class="text-zinc-300">Receipt</span>
 {% endblock %}
@@ -33,12 +33,12 @@
         Print / Save PDF
       </button>
       <a
-        href="{% url 'dashboard:payment_receipt_pdf' payment.pk %}"
+        href="{% url 'finance:payment_receipt_pdf' payment.pk %}"
         class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400"
       >
         Download PDF
       </a>
-      <form method="post" action="{% url 'dashboard:payment_receipt_whatsapp' payment.pk %}">
+      <form method="post" action="{% url 'finance:payment_receipt_whatsapp' payment.pk %}">
         {% csrf_token %}
         <button
           type="submit"
@@ -50,7 +50,7 @@
         </button>
       </form>
       <a
-        href="{% url 'dashboard:student_fee_statement' student.admission_number %}"
+        href="{% url 'finance:student_fee_statement' student.admission_number %}"
         class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400"
       >
         Fee statement

@@ -137,7 +137,7 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
 LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = '/app/'
+LOGIN_REDIRECT_URL = '/overview/'
 LOGOUT_REDIRECT_URL = '/'
 
 AUTH_USER_MODEL = 'tenants.User'

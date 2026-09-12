@@ -11,10 +11,8 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from academics.models import ClassStream, GradeLevel, Student
-from finance.forms import SchoolFeeChargeForm, TermFeePlanForm
-from finance.models import FeeStructure, Payment, TermFeeLineItem, TermFeePlan
-from finance.services import create_and_assign_charge, stream_finance_rows
+from finance.forms import TermFeePlanForm
+from finance.models import TermFeeLineItem, TermFeePlan
 from finance.services.invoicing import generate_invoices_from_plan
 from finance.services.reconciliation import (
     ACK,
@@ -23,7 +21,7 @@ from finance.services.reconciliation import (
     reconcile_stk_callback,
     validate_c2b_payment,
 )
-from tenants.decorators import school_admin_required, school_finance_required
+from tenants.decorators import school_finance_required
 
 logger = logging.getLogger(__name__)
 
@@ -48,9 +46,9 @@ class SchoolFinanceView(LoginRequiredMixin, View):
             return redirect('tenants:select')
         messages.info(
             request,
-            'Collections now use Fee ledger and Term fee plans. Legacy charges are retired.',
+            'Use Finance and Fee plans. Legacy charges are retired.',
         )
-        return redirect('dashboard:fee_ledger')
+        return redirect('finance:fee_ledger')
 
     def post(self, request):
         school = _ensure_school(request)
@@ -65,7 +63,7 @@ class SchoolFinanceView(LoginRequiredMixin, View):
 
 @method_decorator(school_finance_required, name='dispatch')
 class TermFeePlanView(LoginRequiredMixin, View):
-    """Create term fee plans (vote-heads) and generate FeeInvoices."""
+    """List term fee plans (create is a separate page)."""
 
     template_name = 'finance/term_fee_plans.html'
 
@@ -73,20 +71,37 @@ class TermFeePlanView(LoginRequiredMixin, View):
         school = _ensure_school(request)
         if school is None:
             return redirect('tenants:select')
-        return self._render(request, school)
+        plans = (
+            TermFeePlan.objects.filter(school=school)
+            .select_related('grade_level', 'created_by')
+            .prefetch_related('line_items__category')
+            .order_by('-is_active', '-created_at')[:80]
+        )
+        return render(
+            request,
+            self.template_name,
+            {
+                'page_title': 'Fee plans',
+                'plans': plans,
+            },
+        )
 
     def post(self, request):
         school = _ensure_school(request)
         if school is None:
             return redirect('tenants:select')
 
-        action = (request.POST.get('action') or 'create_plan').strip()
+        action = (request.POST.get('action') or '').strip()
+        plan = get_object_or_404(
+            TermFeePlan,
+            pk=request.POST.get('plan_id'),
+            school=school,
+        )
+
         if action == 'generate':
-            plan = get_object_or_404(
-                TermFeePlan,
-                pk=request.POST.get('plan_id'),
-                school=school,
-            )
+            if not plan.is_active:
+                messages.error(request, 'Activate the plan before generating invoices.')
+                return redirect('finance:term_fee_plans')
             result = generate_invoices_from_plan(plan, created_by=request.user)
             messages.success(
                 request,
@@ -98,10 +113,86 @@ class TermFeePlanView(LoginRequiredMixin, View):
             )
             return redirect('finance:term_fee_plans')
 
+        if action == 'deactivate':
+            plan.is_active = False
+            plan.save(update_fields=['is_active', 'updated_at'])
+            messages.success(request, f'“{plan.name}” deactivated.')
+            return redirect('finance:term_fee_plans')
+
+        if action == 'activate':
+            # Re-run conflict checks before reactivating.
+            conflicts = TermFeePlan.objects.filter(
+                school=school,
+                is_active=True,
+                term__iexact=plan.term,
+            ).exclude(pk=plan.pk)
+            if plan.grade_level_id is None:
+                if conflicts.exists():
+                    messages.error(
+                        request,
+                        'Cannot activate: another active plan already covers this term.',
+                    )
+                    return redirect('finance:term_fee_plans')
+            else:
+                if conflicts.filter(grade_level=plan.grade_level).exists():
+                    messages.error(
+                        request,
+                        'Cannot activate: an active plan already exists for this grade and term.',
+                    )
+                    return redirect('finance:term_fee_plans')
+                if conflicts.filter(grade_level__isnull=True).exists():
+                    messages.error(
+                        request,
+                        'Cannot activate: a school-wide plan already covers this term.',
+                    )
+                    return redirect('finance:term_fee_plans')
+            plan.is_active = True
+            plan.save(update_fields=['is_active', 'updated_at'])
+            messages.success(request, f'“{plan.name}” activated.')
+            return redirect('finance:term_fee_plans')
+
+        messages.error(request, 'Unknown action.')
+        return redirect('finance:term_fee_plans')
+
+
+@method_decorator(school_finance_required, name='dispatch')
+class TermFeePlanCreateView(LoginRequiredMixin, View):
+    """Create a new term fee plan with conflict checks."""
+
+    template_name = 'finance/term_fee_plan_form.html'
+
+    def get(self, request):
+        school = _ensure_school(request)
+        if school is None:
+            return redirect('tenants:select')
+        form = TermFeePlanForm(school=school)
+        return render(
+            request,
+            self.template_name,
+            {
+                'page_title': 'Add fee plan',
+                'form': form,
+                'categories': form.categories,
+            },
+        )
+
+    def post(self, request):
+        school = _ensure_school(request)
+        if school is None:
+            return redirect('tenants:select')
         form = TermFeePlanForm(request.POST, school=school)
         if not form.is_valid():
             messages.error(request, 'Could not save fee plan. Check the details.')
-            return self._render(request, school, form=form, status=400)
+            return render(
+                request,
+                self.template_name,
+                {
+                    'page_title': 'Add fee plan',
+                    'form': form,
+                    'categories': form.categories,
+                },
+                status=400,
+            )
 
         plan = TermFeePlan.objects.create(
             school=school,
@@ -122,29 +213,9 @@ class TermFeePlanView(LoginRequiredMixin, View):
         messages.success(
             request,
             f'Fee plan “{plan.name}” saved (total {plan.total_amount}). '
-            'Generate invoices when ready.',
+            'Generate invoices from the plans list when ready.',
         )
         return redirect('finance:term_fee_plans')
-
-    def _render(self, request, school, form=None, status=200):
-        form = form or TermFeePlanForm(school=school)
-        plans = (
-            TermFeePlan.objects.filter(school=school)
-            .select_related('grade_level', 'created_by')
-            .prefetch_related('line_items__category')
-            .order_by('-created_at')[:40]
-        )
-        return render(
-            request,
-            self.template_name,
-            {
-                'page_title': 'Fee plans',
-                'form': form,
-                'plans': plans,
-                'categories': getattr(form, 'categories', []),
-            },
-            status=status,
-        )
 
 
 @csrf_exempt

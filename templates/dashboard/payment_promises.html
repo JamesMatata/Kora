@@ -7,7 +7,7 @@
 {% block breadcrumbs %}
   <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
   <span class="text-zinc-700">/</span>
-  <a href="{% url 'dashboard:fee_ledger' %}" class="hover:text-yellow-400">Fee ledger</a>
+  <a href="{% url 'finance:fee_ledger' %}" class="hover:text-yellow-400">Fee ledger</a>
   <span class="text-zinc-700">/</span>
   <span class="text-zinc-300">Promises</span>
 {% endblock %}
@@ -22,7 +22,7 @@
         </p>
       </div>
       <a
-        href="{% url 'dashboard:fee_ledger' %}"
+        href="{% url 'finance:fee_ledger' %}"
         class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
       >
         Fee ledger
