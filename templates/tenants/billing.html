@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}Kora subscription · {{ school.name }}{% endblock %}
+
+{% block page_title %}Kora subscription{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'dashboard:overview' %}" class="hover:text-yellow-400">Home</a>
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">Billing</span>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h2 class="text-2xl font-semibold text-zinc-100">Kora subscription</h2>
+        <p class="mt-2 max-w-2xl text-sm text-zinc-400">
+          Platform fee for {{ school.name }}. Parent fee collection on Finance is separate.
+        </p>
+      </div>
+      <a
+        href="{% url 'tenants:select' %}"
+        class="inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:w-auto sm:py-2"
+      >
+        Switch school
+      </a>
+    </div>
+
+    {% if subscription and subscription.is_locked %}
+      <div class="rounded-md border border-yellow-400/40 bg-yellow-400/10 px-4 py-3 text-sm text-yellow-100">
+        {{ billing_settings.soft_lock_message }}
+        {% if subscription.lock_reason %}
+          <span class="mt-1 block text-yellow-200/80">{{ subscription.lock_reason }}</span>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <dl class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div>
+        <dt class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Status</dt>
+        <dd class="mt-1 text-sm font-semibold text-zinc-100">
+          {% if subscription %}{{ subscription.get_billing_state_display }}{% else %}—{% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Live roster</dt>
+        <dd class="mt-1 text-sm font-semibold text-zinc-100">{{ live_headcount }} students</dd>
+      </div>
+      <div>
+        <dt class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Locked census</dt>
+        <dd class="mt-1 text-sm font-semibold text-zinc-100">
+          {% if main_invoice and main_invoice.is_census_locked %}
+            {{ main_invoice.headcount }} · {{ main_invoice.term_label }}
+          {% elif main_invoice %}
+            Provisional · locks {{ main_invoice.census_lock_date|date:"j M Y" }}
+          {% else %}
+            —
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Credit</dt>
+        <dd class="mt-1 text-sm font-semibold text-zinc-100">
+          KSh {% if subscription %}{{ subscription.credit_balance }}{% else %}0.00{% endif %}
+        </dd>
+      </div>
+    </dl>
+
+    {% if main_invoice %}
+      <div class="border-t border-zinc-800 pt-4">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">This term</p>
+        <div class="mt-2 flex flex-wrap items-baseline justify-between gap-3">
+          <div>
+            <p class="text-lg font-semibold text-zinc-100">{{ main_invoice.term_label }}</p>
+            <p class="mt-1 text-sm text-zinc-400">
+              {{ main_invoice.get_tier_display }} ·
+              KSh {{ main_invoice.rate_per_student }}/student ·
+              {{ main_invoice.get_census_status_display }}
+              {% if main_invoice.credit_applied %}
+                · credit KSh {{ main_invoice.credit_applied }}
+              {% endif %}
+              {% if main_invoice.proration_factor < 1 %}
+                · prorated × {{ main_invoice.proration_factor }}
+              {% endif %}
+            </p>
+          </div>
+          <div class="text-right">
+            <p class="text-xl font-semibold text-zinc-100">KSh {{ main_invoice.amount_due }}</p>
+            <p class="text-xs text-zinc-500">Paid KSh {{ main_invoice.amount_paid }} · {{ main_invoice.get_status_display }}</p>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if true_up_preview %}
+      <div class="border-t border-zinc-800 pt-4">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">End-of-term estimate</p>
+        <p class="mt-2 text-sm text-zinc-300">
+          Census {{ true_up_preview.locked_headcount }} → live {{ true_up_preview.live_headcount }}
+          (net {{ true_up_preview.net_delta|stringformat:"+d" }})
+          {% if true_up_preview.ignored %}
+            — {{ true_up_preview.reason }}
+          {% elif true_up_preview.action == 'charge' %}
+            — estimated add-on <span class="font-semibold text-zinc-100">KSh {{ true_up_preview.amount }}</span>
+          {% elif true_up_preview.action == 'credit' %}
+            — estimated next-term credit <span class="font-semibold text-zinc-100">KSh {{ true_up_preview.amount }}</span>
+          {% endif %}
+        </p>
+      </div>
+    {% endif %}
+
+    <div class="border-t border-zinc-800 pt-4">
+      <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">How billing works</p>
+      <p class="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">{{ billing_settings.census_policy_text }}</p>
+      <p class="mt-2 max-w-2xl text-sm text-zinc-500">{{ billing_settings.pay_instructions }}</p>
+      {% if subscription and subscription.trial_ends_at %}
+        <p class="mt-2 text-sm text-zinc-500">
+          Trial ends {{ subscription.trial_ends_at|date:"j M Y" }}.
+          Then {{ billing_settings.post_trial_grace_days }} days to pay the first invoice.
+        </p>
+      {% endif %}
+      {% if next_term_quote %}
+        <p class="mt-2 text-xs text-zinc-600">
+          Next-term estimate at today’s roster ({{ live_headcount }}):
+          {{ next_term_quote.tier|title }} · about KSh {{ next_term_quote.full_amount }} full term.
+        </p>
+      {% endif %}
+    </div>
+
+    <div class="border-t border-zinc-800 pt-4">
+      <h3 class="mb-3 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Invoice history</h3>
+      {% if invoices %}
+        <div class="hidden overflow-x-auto rounded-md border border-zinc-800 md:block">
+          <table class="min-w-full text-left text-sm">
+            <thead class="border-b border-zinc-800 bg-zinc-950 font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+              <tr>
+                <th class="px-3 py-2">Invoice</th>
+                <th class="px-3 py-2">Type</th>
+                <th class="px-3 py-2">Students</th>
+                <th class="px-3 py-2">Due</th>
+                <th class="px-3 py-2">Paid</th>
+                <th class="px-3 py-2">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for inv in invoices %}
+                <tr class="border-b border-zinc-900">
+                  <td class="px-3 py-2 text-zinc-200">
+                    {{ inv.term_label }}
+                    {% if inv.proration_factor < 1 and inv.kind == 'main' %}
+                      <span class="block text-xs text-zinc-500">Prorated × {{ inv.proration_factor }}</span>
+                    {% endif %}
+                  </td>
+                  <td class="px-3 py-2 text-zinc-400">{{ inv.get_kind_display }}</td>
+                  <td class="px-3 py-2 text-zinc-400">
+                    {% if inv.kind == 'true_up' %}
+                      {{ inv.headcount_delta|stringformat:"+d" }} net
+                    {% else %}
+                      {{ inv.headcount }}
+                      {% if inv.kind == 'main' %}
+                        <span class="block text-[10px] uppercase tracking-wider text-zinc-600">
+                          {% if inv.is_census_locked %}Locked{% else %}Provisional{% endif %}
+                        </span>
+                      {% endif %}
+                    {% endif %}
+                  </td>
+                  <td class="px-3 py-2 text-zinc-100">KSh {{ inv.amount_due }}</td>
+                  <td class="px-3 py-2 text-zinc-300">KSh {{ inv.amount_paid }}</td>
+                  <td class="px-3 py-2 text-zinc-300">{{ inv.get_status_display }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <ul class="space-y-2 md:hidden">
+          {% for inv in invoices %}
+            <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="font-medium text-zinc-100">{{ inv.term_label }}</p>
+                  <p class="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+                    {{ inv.get_kind_display }}
+                    {% if inv.kind == 'true_up' %}
+                      · {{ inv.headcount_delta|stringformat:"+d" }} net
+                    {% else %}
+                      · {{ inv.headcount }} students
+                    {% endif %}
+                  </p>
+                </div>
+                <p class="shrink-0 text-sm font-semibold text-zinc-100">KSh {{ inv.amount_due }}</p>
+              </div>
+              <p class="mt-2 text-xs text-zinc-400">
+                Paid KSh {{ inv.amount_paid }} · {{ inv.get_status_display }}
+              </p>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-sm text-zinc-500">No platform invoices yet. They appear after your trial ends or when a term opens.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

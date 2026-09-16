@@ -3,7 +3,7 @@
 {% block title %}Sign up · Kora{% endblock %}
 
 {% block body %}
-  <main class="flex min-h-full items-center justify-center px-4 pb-16 pt-36 sm:pt-40">
+  <main class="flex flex-1 items-center justify-center px-4 pb-16 pt-24 sm:pt-40">
     <div class="w-full max-w-sm">
       <h1 class="text-3xl font-semibold text-zinc-100">Create account</h1>
       <p class="mt-2 text-sm text-zinc-400">Start with your details. You can create or join a school next.</p>
@@ -17,7 +17,7 @@
         {{ form.email }}
         {% if form.email.errors %}<p class="text-xs text-red-400">{{ form.email.errors|striptags }}</p>{% endif %}
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             {{ form.first_name }}
             {% if form.first_name.errors %}<p class="mt-1 text-xs text-red-400">{{ form.first_name.errors|striptags }}</p>{% endif %}
@@ -68,7 +68,7 @@
         </div>
         {% if form.password2.errors %}<p class="text-xs text-red-400">{{ form.password2.errors|striptags }}</p>{% endif %}
 
-        <button type="submit" class="w-full rounded-md border border-yellow-400 bg-yellow-400 px-3 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
+        <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-3 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
           Create account
         </button>
       </form>

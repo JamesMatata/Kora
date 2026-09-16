@@ -17,19 +17,20 @@
       <p class="mt-2 text-sm text-zinc-400">Payments, role changes, and settings updates for this school.</p>
     </div>
 
-    <form method="get" class="flex flex-wrap items-end gap-3 rounded-md border border-zinc-800 bg-black p-4">
-      <div>
+    <form method="get" class="flex flex-col gap-3 rounded-md border border-zinc-800 bg-black p-4 sm:flex-row sm:flex-wrap sm:items-end">
+      <div class="w-full sm:w-auto">
         <label class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Category</label>
-        <select name="category" class="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400">
+        <select name="category" class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400 sm:w-auto">
           {% for value, label in category_choices %}
             <option value="{{ value }}" {% if category == value %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
       </div>
-      <button type="submit" class="rounded-md border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400">Filter</button>
+      <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-700 px-4 py-2.5 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400 sm:min-h-0 sm:w-auto sm:py-2">Filter</button>
     </form>
 
-    <div class="overflow-x-auto rounded-md border border-zinc-800">
+    {# Desktop #}
+    <div class="hidden overflow-x-auto rounded-md border border-zinc-800 md:block">
       <table class="min-w-full border-collapse text-left text-sm">
         <thead class="bg-black">
           <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
@@ -60,5 +61,24 @@
         </tbody>
       </table>
     </div>
+
+    {# Mobile #}
+    <ul class="space-y-2 md:hidden">
+      {% for event in events %}
+        <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+          <div class="flex items-start justify-between gap-3">
+            <span class="font-mono text-[10px] uppercase tracking-wider text-yellow-400">{{ event.get_category_display }}</span>
+            <time class="shrink-0 font-mono text-[10px] text-zinc-500">{{ event.created_at|date:"d M Y H:i" }}</time>
+          </div>
+          <p class="mt-2 text-sm text-zinc-200">{{ event.summary }}</p>
+          <p class="mt-1 font-mono text-[10px] text-zinc-600">{{ event.action }}{% if event.object_id %} · {{ event.object_type }} {{ event.object_id }}{% endif %}</p>
+          <p class="mt-2 text-xs text-zinc-500">
+            {% if event.actor %}{{ event.actor.get_full_name|default:event.actor.email }}{% else %}System{% endif %}
+          </p>
+        </li>
+      {% empty %}
+        <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-8 text-center text-sm text-zinc-500">No audit events yet.</li>
+      {% endfor %}
+    </ul>
   </div>
 {% endblock %}

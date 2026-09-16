@@ -1,0 +1,91 @@
+{% extends "public_base.html" %}
+
+{% block title %}Privacy & trust · Kora{% endblock %}
+
+{% block meta %}
+  <meta name="description" content="How Kora handles school and parent data, verification, and payment security in Kenya.">
+{% endblock %}
+
+{% block extra_css %}
+    .trust-row + .trust-row {
+      border-top: 1px solid rgb(39 39 42);
+    }
+{% endblock %}
+
+{% block body %}
+  <main class="flex-1 pt-14">
+    <section class="bg-black">
+      <div class="mx-auto max-w-6xl px-4 py-20 lg:px-8 lg:py-28">
+        <h1 class="max-w-3xl text-4xl font-bold tracking-tight text-zinc-50 sm:text-6xl lg:leading-[1.05]">
+          Built for real schools —<br class="hidden sm:block">
+          <span class="text-yellow-400">not scrapers.</span>
+        </h1>
+        <p class="mt-6 max-w-xl text-base leading-relaxed text-zinc-400 sm:text-xl">
+          We store school operations data so you can collect fees and message parents responsibly — and we verify schools before they go live.
+        </p>
+      </div>
+    </section>
+
+    <section class="border-t border-zinc-800 bg-kora-graphite">
+      <div class="mx-auto max-w-6xl px-4 py-20 lg:px-8 lg:py-28">
+        <div class="trust-row grid gap-4 py-10 sm:grid-cols-[minmax(0,16rem)_1fr] sm:gap-12">
+          <h2 class="text-xl font-semibold text-yellow-400 sm:text-2xl">What we collect</h2>
+          <p class="max-w-2xl text-sm leading-relaxed text-zinc-400 sm:text-base">
+            School profile and contacts, staff accounts, student roster details you enter (including parent phones for WhatsApp and fees), fee invoices and payment records, and verification documents you upload when applying.
+          </p>
+        </div>
+        <div class="trust-row grid gap-4 py-10 sm:grid-cols-[minmax(0,16rem)_1fr] sm:gap-12">
+          <h2 class="text-xl font-semibold text-yellow-400 sm:text-2xl">Why we collect it</h2>
+          <p class="max-w-2xl text-sm leading-relaxed text-zinc-400 sm:text-base">
+            To run your school workspace: fee collection (including M-Pesa), parent messaging, attendance and staff collaboration, and to confirm that people applying for a school are authorised to represent it.
+          </p>
+        </div>
+        <div class="trust-row grid gap-4 py-10 sm:grid-cols-[minmax(0,16rem)_1fr] sm:gap-12">
+          <h2 class="text-xl font-semibold text-yellow-400 sm:text-2xl">School verification</h2>
+          <p class="max-w-2xl text-sm leading-relaxed text-zinc-400 sm:text-base">
+            New schools are not instant. Applications are reviewed by our team (target: 2 business days). Until approval, applicants only see a verification-pending screen and can still switch to other schools they belong to.
+          </p>
+        </div>
+        <div class="trust-row grid gap-4 py-10 sm:grid-cols-[minmax(0,16rem)_1fr] sm:gap-12">
+          <h2 class="text-xl font-semibold text-yellow-400 sm:text-2xl">Payments &amp; secrets</h2>
+          <p class="max-w-2xl text-sm leading-relaxed text-zinc-400 sm:text-base">
+            Parent fee payments go to your school’s Paybill via Safaricom Daraja. Kora reconciles callbacks into your ledger. API secrets are encrypted at rest. Platform subscription billing is separate from parent fee collection.
+          </p>
+        </div>
+        <div class="trust-row grid gap-4 py-10 sm:grid-cols-[minmax(0,16rem)_1fr] sm:gap-12">
+          <h2 class="text-xl font-semibold text-yellow-400 sm:text-2xl">Your control</h2>
+          <p class="max-w-2xl text-sm leading-relaxed text-zinc-400 sm:text-base">
+            School admins manage staff access, student records, and settings inside Kora. For data access or deletion requests related to your school, contact us through your account manager or the email on your application.
+          </p>
+        </div>
+        <div class="trust-row grid gap-4 py-10 sm:grid-cols-[minmax(0,16rem)_1fr] sm:gap-12">
+          <h2 class="text-xl font-semibold text-yellow-400 sm:text-2xl">Kenya context</h2>
+          <p class="max-w-2xl text-sm leading-relaxed text-zinc-400 sm:text-base">
+            We design for Kenyan school operations (CBC-era structures, M-Pesa, WhatsApp). We aim to handle personal data carefully under applicable Kenyan data protection expectations. This page is a plain-language summary, not legal advice.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="border-t border-zinc-800 bg-black">
+      <div class="mx-auto max-w-6xl px-4 py-20 lg:px-8 lg:py-28">
+        <h2 class="max-w-2xl text-3xl font-semibold tracking-tight text-zinc-100 sm:text-5xl">
+          Ready when your school is.
+        </h2>
+        <p class="mt-5 max-w-lg text-base leading-relaxed text-zinc-400">
+          See pricing, or start an application when you’re ready to verify.
+        </p>
+        <div class="mt-10 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+          <a href="{% url 'pricing' %}" class="inline-flex min-h-12 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-6 py-3 text-sm font-semibold text-black hover:bg-yellow-300 sm:w-auto">
+            See pricing
+          </a>
+          {% if user.is_authenticated %}
+            <a href="{% url 'tenants:create' %}" class="inline-flex min-h-12 w-full items-center justify-center rounded-md border border-zinc-700 px-6 py-3 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400 sm:w-auto">Apply for a school</a>
+          {% else %}
+            <a href="{% url 'signup' %}" class="inline-flex min-h-12 w-full items-center justify-center rounded-md border border-zinc-700 px-6 py-3 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400 sm:w-auto">Get started</a>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+  </main>
+{% endblock %}

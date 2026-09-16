@@ -20,7 +20,7 @@
       <button
         type="button"
         id="open-grade-create-modal"
-        class="shrink-0 rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+        class="inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:w-auto sm:py-2"
       >
         Add class
       </button>
@@ -84,10 +84,10 @@
             {% endif %}
 
             <div class="border-t border-zinc-800 px-4 py-2.5">
-              <form method="post" action="{% url 'dashboard:stream_create' card.grade.slug %}" class="flex gap-2" hx-boost="false">
+              <form method="post" action="{% url 'dashboard:stream_create' card.grade.slug %}" class="flex flex-col gap-2 sm:flex-row" hx-boost="false">
                 {% csrf_token %}
                 {{ card.stream_create_form.name }}
-                <button type="submit" class="shrink-0 rounded-md border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400">
+                <button type="submit" class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-md border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:min-h-0 sm:py-1.5 sm:text-xs">
                   Add stream
                 </button>
               </form>
@@ -242,9 +242,10 @@
     });
     closeBtn.addEventListener('click', closeModal);
     backdrop.addEventListener('click', closeModal);
-    {% if show_grade_modal %}
-    openModal();
-    {% endif %}
+    // Server may render the panel open (validation errors); lock overlay to match.
+    if (!backdrop.classList.contains('hidden')) {
+      openModal();
+    }
 
     const streamBackdrop = document.getElementById('stream-edit-backdrop');
     const streamModal = document.getElementById('stream-edit-modal');

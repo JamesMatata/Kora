@@ -1,0 +1,18 @@
+<div
+  class="kora-toast pointer-events-auto rounded-md border {{ border }} bg-zinc-950 px-3 py-2.5 text-sm {{ text }}"
+  data-toast
+  data-toast-level="{{ level }}"
+  role="status"
+>
+  <div class="flex items-start gap-3">
+    <div class="min-w-0 flex-1">
+      <p class="font-mono text-[10px] uppercase tracking-[0.18em] {{ label_color }}">{{ label }}</p>
+      <p class="mt-1 text-zinc-100">{{ message }}</p>
+    </div>
+    <button
+      type="button"
+      class="kora-toast-dismiss shrink-0 text-zinc-500 hover:text-zinc-200"
+      aria-label="Dismiss"
+    >✕</button>
+  </div>
+</div>

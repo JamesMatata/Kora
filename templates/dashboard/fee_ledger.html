@@ -18,38 +18,40 @@
         <h2 class="text-2xl font-semibold text-zinc-100">Finance</h2>
         <p class="mt-2 max-w-2xl text-sm text-zinc-400">
           Chase balances, honour payment promises, and follow parents who paused reminders — in one place.
+          To add a bursary or discount, open a student’s <span class="text-zinc-300">Statement</span> and use
+          <span class="text-zinc-300">Add bursary / discount</span> — the parent is notified on WhatsApp.
         </p>
       </div>
-      <div class="flex flex-wrap gap-2">
+      <div class="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
+        <a
+          href="{% url 'finance:term_fee_plans' %}"
+          class="inline-flex min-h-11 items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:min-h-0 sm:py-2"
+        >
+          Fee plans
+        </a>
         {% if collection_view == 'overdue' %}
           <a
             href="{% url 'finance:defaulter_export' %}?q={{ filters.q|urlencode }}&amp;grade={{ filters.grade }}&amp;stream={{ filters.stream }}"
-            class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+            class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:min-h-0 sm:py-2"
           >
             Export overdue CSV
           </a>
         {% endif %}
         <a
           href="{% url 'dashboard:payments_export' %}"
-          class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+          class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:min-h-0 sm:py-2"
         >
           Export payments
-        </a>
-        <a
-          href="{% url 'finance:term_fee_plans' %}"
-          class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
-        >
-          Fee plans
         </a>
       </div>
     </div>
 
-    <div class="flex flex-wrap gap-2 border-b border-zinc-800 pb-3">
+    <div class="grid grid-cols-4 gap-1.5 border-b border-zinc-800 pb-3 sm:flex sm:flex-wrap sm:gap-2">
       {% with v=collection_view %}
-        <a href="?view=all&amp;q={{ filters.q|urlencode }}&amp;grade={{ filters.grade }}&amp;stream={{ filters.stream }}" class="rounded-md px-3 py-1.5 text-sm font-semibold {% if v == 'all' %}bg-yellow-400 text-black{% else %}border border-zinc-800 text-zinc-300 hover:border-yellow-400 hover:text-yellow-400{% endif %}">All</a>
-        <a href="?view=overdue&amp;q={{ filters.q|urlencode }}&amp;grade={{ filters.grade }}&amp;stream={{ filters.stream }}" class="rounded-md px-3 py-1.5 text-sm font-semibold {% if v == 'overdue' %}bg-yellow-400 text-black{% else %}border border-zinc-800 text-zinc-300 hover:border-yellow-400 hover:text-yellow-400{% endif %}">Overdue</a>
-        <a href="?view=promised&amp;q={{ filters.q|urlencode }}&amp;grade={{ filters.grade }}&amp;stream={{ filters.stream }}" class="rounded-md px-3 py-1.5 text-sm font-semibold {% if v == 'promised' %}bg-yellow-400 text-black{% else %}border border-zinc-800 text-zinc-300 hover:border-yellow-400 hover:text-yellow-400{% endif %}">Promised</a>
-        <a href="?view=paused&amp;q={{ filters.q|urlencode }}&amp;grade={{ filters.grade }}&amp;stream={{ filters.stream }}" class="rounded-md px-3 py-1.5 text-sm font-semibold {% if v == 'paused' %}bg-yellow-400 text-black{% else %}border border-zinc-800 text-zinc-300 hover:border-yellow-400 hover:text-yellow-400{% endif %}">Paused</a>
+        <a href="?view=all&amp;q={{ filters.q|urlencode }}&amp;grade={{ filters.grade }}&amp;stream={{ filters.stream }}" class="inline-flex min-h-11 items-center justify-center rounded-md px-2 py-1.5 text-center text-xs font-semibold sm:min-h-0 sm:px-3 sm:text-sm {% if v == 'all' %}bg-yellow-400 text-black{% else %}border border-zinc-800 text-zinc-300 hover:border-yellow-400 hover:text-yellow-400{% endif %}">All</a>
+        <a href="?view=overdue&amp;q={{ filters.q|urlencode }}&amp;grade={{ filters.grade }}&amp;stream={{ filters.stream }}" class="inline-flex min-h-11 items-center justify-center rounded-md px-2 py-1.5 text-center text-xs font-semibold sm:min-h-0 sm:px-3 sm:text-sm {% if v == 'overdue' %}bg-yellow-400 text-black{% else %}border border-zinc-800 text-zinc-300 hover:border-yellow-400 hover:text-yellow-400{% endif %}">Overdue</a>
+        <a href="?view=promised&amp;q={{ filters.q|urlencode }}&amp;grade={{ filters.grade }}&amp;stream={{ filters.stream }}" class="inline-flex min-h-11 items-center justify-center rounded-md px-2 py-1.5 text-center text-xs font-semibold sm:min-h-0 sm:px-3 sm:text-sm {% if v == 'promised' %}bg-yellow-400 text-black{% else %}border border-zinc-800 text-zinc-300 hover:border-yellow-400 hover:text-yellow-400{% endif %}">Promised</a>
+        <a href="?view=paused&amp;q={{ filters.q|urlencode }}&amp;grade={{ filters.grade }}&amp;stream={{ filters.stream }}" class="inline-flex min-h-11 items-center justify-center rounded-md px-2 py-1.5 text-center text-xs font-semibold sm:min-h-0 sm:px-3 sm:text-sm {% if v == 'paused' %}bg-yellow-400 text-black{% else %}border border-zinc-800 text-zinc-300 hover:border-yellow-400 hover:text-yellow-400{% endif %}">Paused</a>
       {% endwith %}
     </div>
 
@@ -68,7 +70,8 @@
       action="{% url 'finance:fee_ledger' %}"
       hx-get="{% url 'finance:fee_ledger_search' %}"
       hx-trigger="change delay:50ms from:select, submit"
-      hx-target="#ledger-table-body"
+      hx-target="#ledger-results"
+      hx-swap="outerHTML"
       hx-include="[name='q'],[name='grade'],[name='stream'],[name='status'],[name='view']"
       hx-indicator="#search-spinner"
     >
@@ -128,7 +131,8 @@
             class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 pr-10 text-sm text-zinc-100 outline-none focus:border-yellow-400"
             hx-get="{% url 'finance:fee_ledger_search' %}"
             hx-trigger="keyup changed delay:300ms, search"
-            hx-target="#ledger-table-body"
+            hx-target="#ledger-results"
+            hx-swap="outerHTML"
             hx-include="#filter-grade,#filter-stream,#filter-status,[name='view']"
             hx-indicator="#search-spinner"
             autocomplete="off"
@@ -147,37 +151,18 @@
       </div>
     </form>
 
-    <div class="overflow-x-auto rounded-md border border-zinc-800">
-      <table class="min-w-full border-collapse text-left text-sm">
-        <thead class="bg-black">
-          <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
-            <th class="px-4 py-3 font-medium">Student</th>
-            <th class="px-4 py-3 font-medium">Class</th>
-            <th class="px-4 py-3 font-medium">Term</th>
-            <th class="px-4 py-3 font-medium">Billed</th>
-            <th class="px-4 py-3 font-medium">Discount</th>
-            <th class="px-4 py-3 font-medium">Paid</th>
-            <th class="px-4 py-3 font-medium">Balance</th>
-            <th class="px-4 py-3 font-medium">Status</th>
-            <th class="px-4 py-3 font-medium">Actions</th>
-          </tr>
-        </thead>
-        <tbody id="ledger-table-body" class="bg-zinc-950">
-          {% include "dashboard/partials/fee_ledger_rows.html" %}
-        </tbody>
-      </table>
-    </div>
+    {% include "dashboard/partials/fee_ledger_rows.html" %}
   </div>
 
   <div id="stk-backdrop" class="hidden fixed inset-0 z-50 bg-black/80" aria-hidden="true"></div>
   <div
     id="stk-modal"
-    class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"
+    class="hidden fixed inset-x-0 bottom-0 z-50 flex items-end justify-center p-0 sm:inset-0 sm:items-center sm:p-4"
     role="dialog"
     aria-modal="true"
     aria-labelledby="stk-modal-title"
   >
-    <div class="w-full max-w-md rounded-md border border-zinc-800 bg-zinc-950 p-5">
+    <div class="w-full max-w-md rounded-t-lg border border-zinc-800 bg-zinc-950 p-5 sm:rounded-md">
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 id="stk-modal-title" class="text-sm font-semibold text-zinc-100">Initiate STK push</h3>

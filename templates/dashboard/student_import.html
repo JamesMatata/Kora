@@ -24,16 +24,16 @@
           Valid rows are saved; incomplete or invalid rows are skipped and listed below.
         </p>
       </div>
-      <div class="flex shrink-0 flex-wrap gap-3">
+      <div class="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:gap-3">
         <a
           href="{% url template_url|default:'dashboard:student_import_template' roster_slug|default:stream.slug %}"
-          class="rounded-md border border-zinc-800 bg-black px-4 py-2 text-sm font-semibold text-yellow-400 hover:border-yellow-400"
+          class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 bg-black px-4 py-2.5 text-sm font-semibold text-yellow-400 hover:border-yellow-400"
         >
           Download template
         </a>
         <a
           href="{% url roster_back_url|default:'dashboard:stream_roster' roster_slug|default:stream.slug %}"
-          class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+          class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
         >
           Back to roster
         </a>
@@ -61,7 +61,7 @@
         {% endif %}
       </div>
       <div class="flex flex-wrap gap-3 pt-2">
-        <button type="submit" class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300">
+        <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:w-auto">
           Import students
         </button>
       </div>

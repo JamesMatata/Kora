@@ -1,3 +1,6 @@
+# Local / video / planning docs — keep on disk for development; do not publish
+docs/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -38,6 +41,7 @@ env/
 .env.local
 .env.*.local
 *.env
+DEMO_CREDENTIALS.txt
 
 # Keep example env files
 !.env.example
@@ -51,7 +55,7 @@ media/
 staticfiles/
 static_root/
 
-# PostgreSQL
+# PostgreSQL / backups
 *.sql
 *.dump
 *.backup

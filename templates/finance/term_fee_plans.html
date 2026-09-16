@@ -23,14 +23,15 @@
       </div>
       <a
         href="{% url 'finance:term_fee_plan_create' %}"
-        class="shrink-0 rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+        class="inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:min-h-0 sm:w-auto sm:py-2"
       >
         Add fee plan
       </a>
     </div>
 
     {% if plans %}
-      <div class="overflow-x-auto rounded-md border border-zinc-800">
+      {# Desktop #}
+      <div class="hidden overflow-x-auto rounded-md border border-zinc-800 md:block">
         <table class="min-w-full border-collapse text-left text-sm">
           <thead class="bg-black">
             <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
@@ -104,15 +105,77 @@
           </tbody>
         </table>
       </div>
+
+      {# Mobile #}
+      <ul class="space-y-2 md:hidden">
+        {% for plan in plans %}
+          <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3 {% if not plan.is_active %}opacity-60{% endif %}">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="font-medium text-zinc-100">{{ plan.name }}</p>
+                <p class="mt-0.5 text-xs text-zinc-400">
+                  {{ plan.term }} · {% if plan.grade_level %}{{ plan.grade_level.name }}{% else %}All grades{% endif %}
+                </p>
+              </div>
+              <div class="shrink-0 text-right">
+                <p class="font-mono text-sm text-yellow-400">{{ plan.total_amount }}</p>
+                <p class="mt-0.5 font-mono text-[10px] uppercase tracking-wider {% if plan.is_active %}text-yellow-400{% else %}text-zinc-500{% endif %}">
+                  {% if plan.is_active %}Active{% else %}Inactive{% endif %}
+                </p>
+              </div>
+            </div>
+            <p class="mt-2 text-xs text-zinc-500">
+              Due {{ plan.due_date|date:"M j, Y" }}
+              {% for item in plan.line_items.all %}
+                {% if forloop.first %} · {% endif %}{{ item.category.name }} {{ item.amount }}{% if not forloop.last %} · {% endif %}
+              {% empty %}
+                · No vote-heads
+              {% endfor %}
+            </p>
+            <div class="mt-3 grid grid-cols-1 gap-2">
+              {% if plan.is_active %}
+                <form method="post" action="{% url 'finance:term_fee_plans' %}" hx-boost="false">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="generate">
+                  <input type="hidden" name="plan_id" value="{{ plan.pk }}">
+                  <button
+                    type="submit"
+                    class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-3 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+                  >
+                    Generate invoices
+                  </button>
+                </form>
+                <form method="post" action="{% url 'finance:term_fee_plans' %}" hx-boost="false">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="deactivate">
+                  <input type="hidden" name="plan_id" value="{{ plan.pk }}">
+                  <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-400 hover:border-yellow-400 hover:text-yellow-400">
+                    Deactivate
+                  </button>
+                </form>
+              {% else %}
+                <form method="post" action="{% url 'finance:term_fee_plans' %}" hx-boost="false">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="activate">
+                  <input type="hidden" name="plan_id" value="{{ plan.pk }}">
+                  <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400">
+                    Activate
+                  </button>
+                </form>
+              {% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
     {% else %}
       <div class="rounded-md border border-dashed border-zinc-800 bg-black px-6 py-12 text-center">
         <p class="text-sm font-medium text-zinc-200">No fee plans yet</p>
         <p class="mt-2 text-sm text-zinc-500">
-          Create a term plan with vote-heads (tuition, lunch, transport…), then generate student invoices.
+          Create a term plan with the fee items your school charges, then generate student invoices.
         </p>
         <a
           href="{% url 'finance:term_fee_plan_create' %}"
-          class="mt-5 inline-flex rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+          class="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:w-auto"
         >
           Add fee plan
         </a>

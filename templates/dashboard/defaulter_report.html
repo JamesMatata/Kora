@@ -24,16 +24,16 @@
           Total arrears (shown): KES {{ total_arrears }}
         </p>
       </div>
-      <div class="flex flex-wrap gap-2">
+      <div class="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
         <a
           href="{% url 'finance:defaulter_export' %}?q={{ filters.q|urlencode }}&amp;grade={{ filters.grade }}&amp;stream={{ filters.stream }}"
-          class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+          class="inline-flex min-h-11 items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:min-h-0 sm:py-2"
         >
           Export CSV
         </a>
         <a
           href="{% url 'finance:fee_ledger' %}?status=OVERDUE"
-          class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+          class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:min-h-0 sm:py-2"
         >
           Fee ledger
         </a>
@@ -83,13 +83,14 @@
         >
       </div>
       <div class="flex items-end">
-        <button type="submit" class="w-full rounded-md border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400">
+        <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-700 px-4 py-2.5 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400 sm:min-h-0 sm:py-2">
           Filter
         </button>
       </div>
     </form>
 
-    <div class="overflow-x-auto rounded-md border border-zinc-800">
+    {# Desktop #}
+    <div class="hidden overflow-x-auto rounded-md border border-zinc-800 md:block">
       <table class="min-w-full border-collapse text-left text-sm">
         <thead class="bg-black">
           <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
@@ -138,5 +139,38 @@
         </tbody>
       </table>
     </div>
+
+    {# Mobile #}
+    <ul class="space-y-2 md:hidden">
+      {% for row in ledger_rows %}
+        <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="font-medium text-zinc-100">{{ row.student.full_name }}</p>
+              <p class="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-500">{{ row.student.admission_number }}</p>
+              <p class="mt-1 text-xs text-zinc-400">
+                {% if row.student.current_stream %}{{ row.student.current_stream }}{% elif row.student.grade_level %}{{ row.student.grade_level.name }}{% else %}—{% endif %}
+                · {{ row.invoice.term }}
+              </p>
+            </div>
+            <p class="shrink-0 font-mono text-sm text-red-400">{{ row.balance }}</p>
+          </div>
+          <p class="mt-2 text-xs text-zinc-500">Due {{ row.invoice.due_date|date:"d M Y" }} · {{ row.student.parent_phone|default:"—" }}</p>
+          <div class="mt-3 grid grid-cols-2 gap-2">
+            <a href="{{ row.statement_url }}" class="inline-flex min-h-11 items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-3 py-2 text-sm font-semibold text-black hover:bg-yellow-300">Statement</a>
+            {% if row.profile_url %}
+              <a href="{{ row.profile_url }}" class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400">Profile</a>
+            {% endif %}
+            {% if row.conversation %}
+              <a href="{% url 'dashboard:chat_console_session' row.conversation.pk %}?tab=all" class="col-span-2 inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400">WhatsApp</a>
+            {% endif %}
+          </div>
+        </li>
+      {% empty %}
+        <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-8 text-center text-sm text-zinc-500">
+          {% if query %}No defaulters match “{{ query }}”.{% else %}No overdue balances for these filters.{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
   </div>
 {% endblock %}

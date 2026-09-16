@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Review {{ school.name }} · Kora{% endblock %}
+
+{% block page_title %}Review application{% endblock %}
+
+{% block breadcrumbs %}
+  <a href="{% url 'tenants:ops_review_list' %}" class="hover:text-yellow-400">Applications</a>
+  <span class="text-zinc-700">/</span>
+  <span class="text-zinc-300">{{ school.name }}</span>
+{% endblock %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div>
+      <h2 class="text-2xl font-semibold text-zinc-100">{{ school.name }}</h2>
+      <p class="mt-1 max-w-2xl text-sm text-zinc-400">
+        {{ school.code }} · {{ school.get_status_display }} ·
+        applicant role: {{ school.applicant_role|default:"—" }}
+      </p>
+    </div>
+
+    <div class="grid gap-3 text-sm text-zinc-300 sm:grid-cols-2">
+      <p>Phone: {{ school.contact_phone|default:"—" }}</p>
+      <p>Email: {{ school.contact_email|default:"—" }}</p>
+      <p>County: {{ school.county|default:"—" }}</p>
+      <p>Est. students: {{ school.estimated_student_count|default:"—" }}</p>
+      <p class="sm:col-span-2">Address: {{ school.physical_address|default:"—" }}</p>
+      <p class="sm:col-span-2">
+        Quote preview: {{ quote.tier|title }} · KSh {{ quote.full_amount }} / term
+        (at {{ quote.headcount }} students)
+      </p>
+    </div>
+
+    <div>
+      <h3 class="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Term calendar</h3>
+      <ul class="space-y-1 text-sm text-zinc-300">
+        {% for term in terms %}
+          <li>{{ term.label }}: {{ term.start_date }} → {{ term.end_date }}</li>
+        {% empty %}
+          <li class="text-zinc-500">No terms on file.</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div>
+      <h3 class="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Documents</h3>
+      <ul class="space-y-2 text-sm">
+        {% for doc in documents %}
+          <li>
+            <a href="{{ doc.file.url }}" target="_blank" rel="noopener" class="text-yellow-400 hover:text-yellow-300">
+              {{ doc.get_doc_type_display }}
+            </a>
+            <span class="text-zinc-500">({{ doc.original_name }})</span>
+          </li>
+        {% empty %}
+          <li class="text-zinc-500">No documents uploaded.</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    {% if school.status == 'pending_review' %}
+      <div class="flex flex-col gap-2 border-t border-zinc-800 pt-4 sm:flex-row sm:flex-wrap">
+        <form method="post" hx-boost="false" class="w-full sm:w-auto">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="approve">
+          <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:w-auto">
+            Approve &amp; start trial
+          </button>
+        </form>
+      </div>
+      <form method="post" class="space-y-3" hx-boost="false">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="reject">
+        <label class="block text-sm text-zinc-400">Rejection reason</label>
+        <textarea name="rejection_reason" rows="3" required class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"></textarea>
+        <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-red-400/50 px-4 py-2.5 text-sm font-semibold text-red-300 hover:border-red-400 sm:w-auto">
+          Reject application
+        </button>
+      </form>
+    {% endif %}
+
+    {% if school.status == 'approved' %}
+      <div class="border-t border-zinc-800 pt-4">
+        <h3 class="mb-3 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Record platform payment</h3>
+        {% for inv in school.platform_invoices.all %}
+          {% if inv.status != 'paid' and inv.status != 'void' %}
+            <form method="post" class="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end" hx-boost="false">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="mark_paid">
+              <input type="hidden" name="invoice_id" value="{{ inv.id }}">
+              <div class="min-w-0 flex-1">
+                <p class="text-xs text-zinc-500">{{ inv.term_label }} · balance KSh {{ inv.balance }}</p>
+                <input type="number" step="0.01" min="0.01" name="amount" value="{{ inv.balance }}" class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 sm:max-w-xs">
+              </div>
+              <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-700 px-3 py-2.5 text-sm text-zinc-200 hover:border-yellow-400 hover:text-yellow-400 sm:w-auto">
+                Mark paid
+              </button>
+            </form>
+          {% endif %}
+        {% empty %}
+          <p class="text-sm text-zinc-500">No open invoices.</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

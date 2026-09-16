@@ -26,32 +26,32 @@
       </div>
       <a
         href="{% url 'dashboard:report_list' %}"
-        class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+        class="inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:min-h-0 sm:w-auto sm:py-2"
       >
         All reports
       </a>
     </div>
 
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <div class="rounded-md border border-zinc-800 bg-black p-4">
         <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Billed</p>
-        <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ report.total_billed }}</p>
+        <p class="mt-2 text-2xl font-semibold text-yellow-400 sm:text-3xl">{{ report.total_billed }}</p>
       </div>
       <div class="rounded-md border border-zinc-800 bg-black p-4">
         <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Collected</p>
-        <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ report.total_collected }}</p>
+        <p class="mt-2 text-2xl font-semibold text-yellow-400 sm:text-3xl">{{ report.total_collected }}</p>
       </div>
       <div class="rounded-md border border-zinc-800 bg-black p-4">
         <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Outstanding</p>
-        <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ report.outstanding }}</p>
+        <p class="mt-2 text-2xl font-semibold text-yellow-400 sm:text-3xl">{{ report.outstanding }}</p>
       </div>
       <div class="rounded-md border border-zinc-800 bg-black p-4">
         <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Efficiency</p>
-        <p class="mt-2 text-3xl font-semibold text-yellow-400">{{ report.collection_efficiency }}%</p>
+        <p class="mt-2 text-2xl font-semibold text-yellow-400 sm:text-3xl">{{ report.collection_efficiency }}%</p>
       </div>
     </div>
 
-    <div class="grid gap-3 sm:grid-cols-3">
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
       <div class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
         <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Conversations</p>
         <p class="mt-1 text-xl font-semibold text-zinc-100">{{ report.total_conversations }}</p>
@@ -66,15 +66,15 @@
       </div>
     </div>
 
-    <div class="rounded-md border border-zinc-800 bg-black p-5">
+    <div class="rounded-md border border-zinc-800 bg-black p-4 sm:p-5">
       <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">AI executive summary</p>
-      <div class="mt-3">
+      <div class="mt-3 overflow-x-auto">
         {{ report.summary_markdown|simple_markdown }}
       </div>
     </div>
 
     {% if report.key_action_items %}
-      <div class="rounded-md border border-zinc-800 bg-black p-5">
+      <div class="rounded-md border border-zinc-800 bg-black p-4 sm:p-5">
         <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Bursar action items</p>
         <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-zinc-300">
           {% for item in report.key_action_items %}

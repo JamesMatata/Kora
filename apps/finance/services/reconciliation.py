@@ -72,6 +72,50 @@ def _map_failure_status(result_code: int) -> str:
     return PaymentTransaction.Status.FAILED_ERROR
 
 
+def _phone_digits(phone: str) -> str:
+    return ''.join(ch for ch in (phone or '') if ch.isdigit())
+
+
+def _phones_match(expected: str, actual: str) -> bool:
+    a = _phone_digits(expected)
+    b = _phone_digits(actual)
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    return len(a) >= 9 and len(b) >= 9 and a[-9:] == b[-9:]
+
+
+def _mark_stk_mismatch(
+    payment_tx,
+    *,
+    payload,
+    result_code,
+    result_desc,
+    reason: str,
+):
+    logger.warning(
+        'STK callback mismatch checkout=%s school=%s reason=%s',
+        payment_tx.checkout_request_id,
+        payment_tx.school_id,
+        reason,
+    )
+    payment_tx.raw_callback_payload = payload
+    payment_tx.result_code = result_code
+    payment_tx.result_desc = f'{result_desc} ({reason})'.strip()
+    payment_tx.status = PaymentTransaction.Status.FAILED_ERROR
+    payment_tx.save(
+        update_fields=[
+            'raw_callback_payload',
+            'result_code',
+            'result_desc',
+            'status',
+            'updated_at',
+        ]
+    )
+    return ACK
+
+
 @transaction.atomic
 def reconcile_stk_callback(
     *,
@@ -81,8 +125,13 @@ def reconcile_stk_callback(
     """
     Apply an STK callback to PaymentTransaction + FeeInvoice idempotently.
 
+    Requires tenant_id. On success, amount and phone must match the pending tx.
     Always safe to acknowledge to Safaricom after this returns.
     """
+    if not tenant_id:
+        logger.warning('Daraja callback missing tenant_id')
+        return ACK
+
     stk = _extract_stk_callback(payload)
     checkout_id = (stk.get('CheckoutRequestID') or '').strip()
     if not checkout_id:
@@ -100,13 +149,14 @@ def reconcile_stk_callback(
 
     result_desc = stk.get('ResultDesc') or ''
 
-    qs = PaymentTransaction.objects.select_for_update().filter(
-        checkout_request_id=checkout_id,
+    payment_tx = (
+        PaymentTransaction.objects.select_for_update()
+        .filter(
+            checkout_request_id=checkout_id,
+            school_id=tenant_id,
+        )
+        .first()
     )
-    if tenant_id:
-        qs = qs.filter(school_id=tenant_id)
-
-    payment_tx = qs.first()
     if payment_tx is None:
         logger.info(
             'Daraja callback: no PaymentTransaction for checkout=%s tenant=%s',
@@ -126,8 +176,32 @@ def reconcile_stk_callback(
         meta = _metadata_map(stk)
         receipt = (meta.get('MpesaReceiptNumber') or '').strip()
         amount = _to_decimal(meta.get('Amount'))
+        callback_phone = str(meta.get('PhoneNumber') or '').strip()
+
         if amount is None:
-            amount = payment_tx.amount
+            return _mark_stk_mismatch(
+                payment_tx,
+                payload=payload,
+                result_code=result_code,
+                result_desc=result_desc,
+                reason='missing_amount',
+            )
+        if amount != payment_tx.amount:
+            return _mark_stk_mismatch(
+                payment_tx,
+                payload=payload,
+                result_code=result_code,
+                result_desc=result_desc,
+                reason='amount_mismatch',
+            )
+        if not _phones_match(payment_tx.phone_number, callback_phone):
+            return _mark_stk_mismatch(
+                payment_tx,
+                payload=payload,
+                result_code=result_code,
+                result_desc=result_desc,
+                reason='phone_mismatch',
+            )
 
         invoice = (
             FeeInvoice.objects.select_for_update()

@@ -16,20 +16,20 @@
       {# Thread list #}
       <aside class="flex min-h-0 flex-col border-b border-zinc-800 bg-zinc-950 lg:border-b-0 lg:border-r {% if session %}hidden lg:flex{% endif %}">
         <div class="flex shrink-0 flex-col gap-3 border-b border-zinc-800 px-4 py-3">
-          <div class="flex items-center justify-between gap-3">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <h1 class="text-sm font-semibold text-zinc-100">WhatsApp</h1>
-            <div class="flex items-center gap-1 rounded-md border border-zinc-800 p-0.5 text-xs">
+            <div class="grid grid-cols-3 gap-1 rounded-md border border-zinc-800 p-0.5 text-xs sm:inline-flex sm:items-center sm:gap-1">
               <a
                 href="{% url 'dashboard:chat_console' %}?tab=escalated{% if search_q %}&amp;q={{ search_q|urlencode }}{% endif %}"
-                class="rounded px-2 py-1 {% if active_tab == 'escalated' %}bg-yellow-400 text-black{% else %}text-zinc-400 hover:text-zinc-200{% endif %}"
+                class="inline-flex min-h-11 items-center justify-center rounded px-2 py-1.5 text-center font-semibold sm:min-h-0 sm:py-1 {% if active_tab == 'escalated' %}bg-yellow-400 text-black{% else %}text-zinc-400 hover:text-zinc-200{% endif %}"
               >Needs you</a>
               <a
                 href="{% url 'dashboard:chat_console' %}?tab=bot{% if search_q %}&amp;q={{ search_q|urlencode }}{% endif %}"
-                class="rounded px-2 py-1 {% if active_tab == 'bot' %}bg-yellow-400 text-black{% else %}text-zinc-400 hover:text-zinc-200{% endif %}"
+                class="inline-flex min-h-11 items-center justify-center rounded px-2 py-1.5 text-center font-semibold sm:min-h-0 sm:py-1 {% if active_tab == 'bot' %}bg-yellow-400 text-black{% else %}text-zinc-400 hover:text-zinc-200{% endif %}"
               >Bot</a>
               <a
                 href="{% url 'dashboard:chat_console' %}?tab=all{% if search_q %}&amp;q={{ search_q|urlencode }}{% endif %}"
-                class="rounded px-2 py-1 {% if active_tab == 'all' %}bg-yellow-400 text-black{% else %}text-zinc-400 hover:text-zinc-200{% endif %}"
+                class="inline-flex min-h-11 items-center justify-center rounded px-2 py-1.5 text-center font-semibold sm:min-h-0 sm:py-1 {% if active_tab == 'all' %}bg-yellow-400 text-black{% else %}text-zinc-400 hover:text-zinc-200{% endif %}"
               >All</a>
             </div>
           </div>
@@ -41,12 +41,12 @@
               value="{{ search_q }}"
               placeholder="Search name, phone, or admission…"
               autocomplete="off"
-              class="w-full rounded-md border border-zinc-800 bg-black py-2 pl-3 pr-8 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-yellow-400"
+              class="min-h-11 w-full rounded-md border border-zinc-800 bg-black py-2 pl-3 pr-8 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-yellow-400 sm:min-h-0"
             >
             {% if search_q %}
               <a
                 href="{% url 'dashboard:chat_console' %}?tab={{ active_tab }}"
-                class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-zinc-500 hover:text-zinc-300"
+                class="absolute right-1 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center text-xs text-zinc-500 hover:text-zinc-300"
                 title="Clear"
               >✕</a>
             {% endif %}
@@ -58,7 +58,7 @@
             <li>
               <a
                 href="{% url 'dashboard:chat_console_session' row.session.pk %}?tab={{ active_tab }}{% if search_q %}&amp;q={{ search_q|urlencode }}{% endif %}"
-                class="block border-b border-zinc-900 px-4 py-3 hover:bg-black {% if session and session.pk == row.session.pk %}border-l-2 border-l-yellow-400 bg-black{% endif %}"
+                class="block border-b border-zinc-900 px-4 py-3.5 hover:bg-black active:bg-zinc-900 {% if session and session.pk == row.session.pk %}border-l-2 border-l-yellow-400 bg-black{% endif %}"
               >
                 <div class="flex items-baseline justify-between gap-3">
                   <p class="truncate text-sm font-medium text-zinc-100">{{ row.title }}</p>
@@ -92,13 +92,13 @@
       {# Conversation #}
       <section class="flex min-h-0 flex-col bg-black {% if not session %}hidden lg:flex{% endif %}">
         {% if session %}
-          <header class="flex shrink-0 items-start justify-between gap-3 border-b border-zinc-800 px-4 py-3">
+          <header class="flex shrink-0 flex-col gap-3 border-b border-zinc-800 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
             <div class="min-w-0">
               <div class="mb-2 lg:hidden">
                 <a
                   href="{% url 'dashboard:chat_console' %}?tab={{ active_tab }}{% if search_q %}&amp;q={{ search_q|urlencode }}{% endif %}"
-                  class="text-xs text-zinc-500 hover:text-yellow-400"
-                >← Back</a>
+                  class="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-zinc-400 hover:text-yellow-400"
+                >← Chats</a>
               </div>
               <p class="truncate text-base font-semibold text-zinc-100">
                 {% if session.active_student %}
@@ -110,7 +110,7 @@
                 {% endif %}
               </p>
               {% if session.active_student or session.parent_contact.parent_name and session.parent_contact.parent_name != session.parent_contact.phone_number or current_balance is not None or session.assigned_staff %}
-                <p class="mt-0.5 truncate text-xs text-zinc-500">
+                <p class="mt-0.5 text-xs text-zinc-500 sm:truncate">
                   {% if session.active_student or session.parent_contact.parent_name and session.parent_contact.parent_name != session.parent_contact.phone_number %}
                     {{ session.parent_contact.phone_number }}{% if session.active_student %} · Adm {{ session.active_student.admission_number }}{% endif %}{% if current_balance is not None %} · Balance {{ current_balance }}{% endif %}{% if session.assigned_staff %} · {{ session.assigned_staff.get_full_name|default:session.assigned_staff.username }}{% endif %}
                   {% elif current_balance is not None %}
@@ -121,14 +121,14 @@
                 </p>
               {% endif %}
             </div>
-            <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            <div class="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:shrink-0 sm:flex-wrap sm:items-center sm:justify-end">
               {% if session.status == status_escalated %}
                 <form method="post" action="{% url 'dashboard:chat_claim' session.pk %}">
                   {% csrf_token %}
                   <input type="hidden" name="tab" value="{{ active_tab }}">
                   <button
                     type="submit"
-                    class="rounded-md border border-yellow-400 bg-yellow-400 px-3 py-1.5 text-xs font-semibold text-black hover:bg-yellow-300"
+                    class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-3 py-2 text-sm font-semibold text-black hover:bg-yellow-300 sm:min-h-0 sm:w-auto sm:px-3 sm:py-1.5 sm:text-xs"
                   >
                     Claim
                   </button>
@@ -139,7 +139,7 @@
                   <input type="hidden" name="tab" value="{{ active_tab }}">
                   <button
                     type="submit"
-                    class="rounded-md border border-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:border-zinc-600 hover:text-zinc-100"
+                    class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-300 hover:border-zinc-600 hover:text-zinc-100 sm:min-h-0 sm:w-auto sm:py-1.5 sm:text-xs"
                   >
                     Return to bot
                   </button>
@@ -149,7 +149,7 @@
                   <input type="hidden" name="tab" value="{{ active_tab }}">
                   <button
                     type="submit"
-                    class="rounded-md border border-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:border-zinc-600 hover:text-zinc-100"
+                    class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-300 hover:border-zinc-600 hover:text-zinc-100 sm:min-h-0 sm:w-auto sm:py-1.5 sm:text-xs"
                   >
                     Resolve
                   </button>
@@ -164,36 +164,40 @@
 
           <div
             id="message-feed"
-            class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-4"
+            class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-4 sm:px-4"
             hx-get="{% url 'dashboard:chat_messages' session.pk %}"
             hx-trigger="every 4s"
             hx-target="#message-feed"
             hx-swap="innerHTML"
+            hx-on::after-swap="window.koraChatScrollToBottom && window.koraChatScrollToBottom()"
           >
             {% include "dashboard/partials/chat_message_feed.html" %}
           </div>
 
-          <footer class="shrink-0 border-t border-zinc-800 px-4 py-3">
+          <footer class="shrink-0 border-t border-zinc-800 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4">
             {% if session.status == status_staff_active %}
               <form
+                id="chat-send-form"
                 class="flex gap-2"
                 hx-post="{% url 'dashboard:chat_send' session.pk %}"
                 hx-target="#message-feed"
                 hx-swap="innerHTML"
-                hx-on::htmx:after-request="if(event.detail.successful) this.reset()"
+                hx-disabled-elt="find button[type='submit']"
+                hx-on::after-request="if(event.detail.successful){ this.reset(); const input = this.querySelector('[name=body]'); if(input) input.focus(); window.koraChatScrollToBottom && window.koraChatScrollToBottom(); }"
               >
                 {% csrf_token %}
                 <input
+                  id="chat-send-input"
                   type="text"
                   name="body"
                   required
                   autocomplete="off"
                   placeholder="Message…"
-                  class="min-w-0 flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+                  class="min-h-11 min-w-0 flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400 sm:min-h-0"
                 >
                 <button
                   type="submit"
-                  class="shrink-0 rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+                  class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300 sm:min-h-0"
                 >
                   Send
                 </button>
@@ -216,4 +220,34 @@
       </section>
     </div>
   </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script>
+    (function () {
+      function scrollChatToBottom() {
+        var feed = document.getElementById('message-feed');
+        if (!feed) return;
+        feed.scrollTop = feed.scrollHeight;
+      }
+      window.koraChatScrollToBottom = scrollChatToBottom;
+
+      function init() {
+        scrollChatToBottom();
+        var input = document.getElementById('chat-send-input');
+        if (input) input.focus();
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+      document.body.addEventListener('htmx:afterSettle', function (event) {
+        if (event.target && event.target.id === 'message-feed') {
+          scrollChatToBottom();
+        }
+      });
+    })();
+  </script>
 {% endblock %}

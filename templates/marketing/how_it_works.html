@@ -1,0 +1,101 @@
+{% extends "public_base.html" %}
+
+{% block title %}How it works · Kora{% endblock %}
+
+{% block meta %}
+  <meta name="description" content="How Kora onboards Kenyan schools: apply, verify, trial, then run fees, WhatsApp, and classes.">
+{% endblock %}
+
+{% block extra_css %}
+    .day-row + .day-row {
+      border-top: 1px solid rgb(39 39 42);
+    }
+{% endblock %}
+
+{% block body %}
+  <main class="flex-1 pt-14">
+    <section class="bg-black">
+      <div class="mx-auto max-w-6xl px-4 py-20 lg:px-8 lg:py-28">
+        <h1 class="max-w-3xl text-4xl font-bold tracking-tight text-zinc-50 sm:text-6xl lg:leading-[1.05]">
+          From application to<br class="hidden sm:block">
+          <span class="text-yellow-400">a live school.</span>
+        </h1>
+        <p class="mt-6 max-w-xl text-base leading-relaxed text-zinc-400 sm:text-xl">
+          You apply, we verify, then you run classes, fees, and WhatsApp from one place — not instant self-serve for fake campuses.
+        </p>
+      </div>
+    </section>
+
+    <section class="border-t border-zinc-800 bg-kora-graphite">
+      <div class="mx-auto max-w-6xl px-4 py-20 lg:px-8 lg:py-28">
+        <div class="grid gap-16 md:grid-cols-2 lg:gap-x-12 lg:gap-y-20">
+          <div>
+            <p class="text-5xl font-bold text-yellow-400/90 sm:text-6xl">1</p>
+            <h2 class="mt-6 text-2xl font-semibold text-zinc-100">Create your account</h2>
+            <p class="mt-3 max-w-md text-sm leading-relaxed text-zinc-400 sm:text-base">
+              Sign up with your work email. Join a school by invitation, or apply to add a new one.
+            </p>
+          </div>
+          <div>
+            <p class="text-5xl font-bold text-yellow-400/90 sm:text-6xl">2</p>
+            <h2 class="mt-6 text-2xl font-semibold text-zinc-100">Apply with documents</h2>
+            <p class="mt-3 max-w-md text-sm leading-relaxed text-zinc-400 sm:text-base">
+              School details, term dates, and verification docs — registration or licence, your ID, and an authority letter. Review usually takes up to 2 business days.
+            </p>
+          </div>
+          <div>
+            <p class="text-5xl font-bold text-yellow-400/90 sm:text-6xl">3</p>
+            <h2 class="mt-6 text-2xl font-semibold text-zinc-100">Trial, then subscribe</h2>
+            <p class="mt-3 max-w-md text-sm leading-relaxed text-zinc-400 sm:text-base">
+              Once approved, your free trial starts. After that, term invoices follow active-student pricing with a day-14 census lock.
+            </p>
+          </div>
+          <div>
+            <p class="text-5xl font-bold text-yellow-400/90 sm:text-6xl">4</p>
+            <h2 class="mt-6 text-2xl font-semibold text-zinc-100">Set up and collect</h2>
+            <p class="mt-3 max-w-md text-sm leading-relaxed text-zinc-400 sm:text-base">
+              Add classes and students, connect Paybill, create fee plans, and turn on WhatsApp fee follow-ups — with M-Pesa into the ledger.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="border-t border-zinc-800 bg-black">
+      <div class="mx-auto max-w-6xl px-4 py-20 lg:px-8 lg:py-28">
+        <h2 class="max-w-2xl text-3xl font-semibold tracking-tight text-zinc-100 sm:text-5xl">
+          What you run day to day.
+        </h2>
+        <div class="mt-16">
+          <div class="day-row grid gap-4 py-10 sm:grid-cols-[minmax(0,14rem)_1fr] sm:gap-12">
+            <h3 class="text-xl font-semibold text-yellow-400">Finance</h3>
+            <p class="text-sm leading-relaxed text-zinc-400 sm:text-base">
+              Fee plans, invoices, STK, Paybill C2B, receipts, defaulters, and promises.
+            </p>
+          </div>
+          <div class="day-row grid gap-4 py-10 sm:grid-cols-[minmax(0,14rem)_1fr] sm:gap-12">
+            <h3 class="text-xl font-semibold text-yellow-400">Classes</h3>
+            <p class="text-sm leading-relaxed text-zinc-400 sm:text-base">
+              Grades, streams, roster import, attendance, and weekly parent updates.
+            </p>
+          </div>
+          <div class="day-row grid gap-4 py-10 sm:grid-cols-[minmax(0,14rem)_1fr] sm:gap-12">
+            <h3 class="text-xl font-semibold text-yellow-400">WhatsApp</h3>
+            <p class="text-sm leading-relaxed text-zinc-400 sm:text-base">
+              Fee follow-ups when balances are overdue, AI on parent replies, and staff takeover when a conversation needs a human.
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-16 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+          <a href="{% url 'pricing' %}" class="inline-flex min-h-12 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-6 py-3 text-sm font-semibold text-black hover:bg-yellow-300 sm:w-auto">See pricing</a>
+          {% if user.is_authenticated %}
+            <a href="{% url 'tenants:create' %}" class="inline-flex min-h-12 w-full items-center justify-center rounded-md border border-zinc-700 px-6 py-3 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400 sm:w-auto">Apply for a school</a>
+          {% else %}
+            <a href="{% url 'signup' %}" class="inline-flex min-h-12 w-full items-center justify-center rounded-md border border-zinc-700 px-6 py-3 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400 sm:w-auto">Get started</a>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+  </main>
+{% endblock %}

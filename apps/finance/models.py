@@ -350,16 +350,22 @@ class FeeInvoice(TenantAwareModel):
         if save:
             self.save(update_fields=['paid_amount', 'status', 'updated_at'])
 
-    def apply_discount(self, amount: Decimal, note: str = '', *, waive_remaining: bool = False):
-        """Apply bursary/discount or waive remaining balance."""
+    def apply_discount(self, amount: Decimal, note: str = '', *, waive_remaining: bool = False) -> Decimal:
+        """
+        Apply bursary/discount or waive remaining balance.
+
+        Returns the amount actually added to discount_amount this call.
+        """
+        before = self.discount_amount or Decimal('0.00')
         amount = Decimal(str(amount or '0'))
         if waive_remaining:
             amount = max(self.balance, Decimal('0.00'))
         if amount < 0:
             raise ValidationError('Discount cannot be negative.')
-        self.discount_amount = (self.discount_amount or Decimal('0.00')) + amount
+        self.discount_amount = before + amount
         if self.discount_amount > self.total_amount:
             self.discount_amount = self.total_amount
+        applied = self.discount_amount - before
         if note:
             self.discount_note = note[:255]
         self.refresh_status(save=False)
@@ -371,6 +377,7 @@ class FeeInvoice(TenantAwareModel):
                 'updated_at',
             ]
         )
+        return applied
 
 
 class PaymentTransaction(TenantAwareModel):
@@ -534,7 +541,15 @@ class PaymentPromise(TenantAwareModel):
         related_name='promises',
     )
     promised_amount = models.DecimalField(max_digits=12, decimal_places=2)
-    promised_date = models.DateField()
+    promised_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Null when the parent is unsure of a date.',
+    )
+    date_uncertain = models.BooleanField(
+        default=False,
+        help_text='Parent could not commit to a specific date (e.g. "not sure").',
+    )
     status = models.CharField(
         max_length=16,
         choices=Status.choices,
@@ -545,8 +560,15 @@ class PaymentPromise(TenantAwareModel):
     class Meta:
         ordering = ['promised_date', '-created_at']
 
+    @property
+    def promised_date_display(self) -> str:
+        """Human label for dashboards: real date or 'date TBD' when unsure."""
+        if self.date_uncertain or self.promised_date is None:
+            return 'date TBD'
+        return self.promised_date.strftime('%d %b %Y')
+
     def __str__(self):
-        return f'{self.promised_amount} by {self.promised_date} · {self.status}'
+        return f'{self.promised_amount} by {self.promised_date_display} · {self.status}'
 
     def save(self, *args, **kwargs):
         if self.invoice_id and not self.school_id:

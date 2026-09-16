@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/kora.css' %}?v=select-inset-2">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -30,12 +31,23 @@
   <style>
     * { box-shadow: none !important; }
     ::selection { background: #facc15; color: #000000; }
+    html body select:not([multiple]) {
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
+      appearance: none !important;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 24 24'%3E%3Cpath stroke='%23a1a1aa' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
+      background-repeat: no-repeat !important;
+      background-position: right 1rem center !important;
+      background-size: 1rem 1rem !important;
+      padding-right: 2.75rem !important;
+    }
+    html body select:not([multiple])::-ms-expand { display: none; }
     {% block extra_css %}{% endblock %}
   </style>
 </head>
-<body class="min-h-full bg-kora-black font-sans text-kora-ink antialiased">
+<body class="flex min-h-screen flex-col bg-kora-black font-sans text-kora-ink antialiased">
   <header class="fixed inset-x-0 top-0 z-40 border-b border-zinc-800/80 bg-black/80 backdrop-blur-sm">
-    <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 lg:px-8">
+    <div class="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 lg:px-8">
       <a href="{% url 'landing' %}" class="flex shrink-0 items-center no-underline" aria-label="Kora home">
         <img
           src="{% static 'img/kora-logo.png' %}"
@@ -43,14 +55,99 @@
           class="h-5 w-auto sm:h-6"
         >
       </a>
-      <div class="flex items-center gap-2 sm:gap-3">
-        <a href="{% url 'login' %}" class="rounded-md px-3 py-1.5 text-sm font-medium text-zinc-300 hover:text-yellow-400">Sign in</a>
-        <a href="{% url 'signup' %}" class="rounded-md border border-yellow-400 bg-yellow-400 px-3 py-1.5 text-sm font-semibold text-black hover:bg-yellow-300">Get started</a>
+      <div class="flex items-center gap-1 sm:gap-2">
+        <a href="{% url 'pricing' %}" class="hidden items-center rounded-md px-2.5 py-1.5 text-sm font-medium text-zinc-300 hover:text-yellow-400 sm:inline-flex">Pricing</a>
+        <a href="{% url 'how_it_works' %}" class="hidden items-center rounded-md px-2.5 py-1.5 text-sm font-medium text-zinc-300 hover:text-yellow-400 md:inline-flex">How it works</a>
+        {% if user.is_authenticated %}
+          <a href="{% url 'dashboard:overview' %}" class="inline-flex items-center rounded-md px-2.5 py-1.5 text-sm font-medium text-zinc-300 hover:text-yellow-400">Open app</a>
+          <a href="{% url 'tenants:create' %}" class="inline-flex items-center rounded-md border border-yellow-400 bg-yellow-400 px-2.5 py-1.5 text-sm font-semibold text-black hover:bg-yellow-300">Apply</a>
+        {% else %}
+          <a href="{% url 'login' %}" class="inline-flex items-center rounded-md px-2.5 py-1.5 text-sm font-medium text-zinc-300 hover:text-yellow-400">Sign in</a>
+          <a href="{% url 'signup' %}" class="inline-flex items-center rounded-md border border-yellow-400 bg-yellow-400 px-2.5 py-1.5 text-sm font-semibold text-black hover:bg-yellow-300">Get started</a>
+        {% endif %}
+        <details class="relative md:hidden">
+          <summary
+            class="inline-flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md text-zinc-400 hover:text-yellow-400 [&::-webkit-details-marker]:hidden"
+            aria-label="More pages"
+          >
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="5" cy="12" r="1.5" fill="currentColor"/>
+              <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+              <circle cx="19" cy="12" r="1.5" fill="currentColor"/>
+            </svg>
+          </summary>
+          <div class="absolute right-0 top-full z-50 mt-1 w-48 rounded-md border border-zinc-800 bg-zinc-950 py-1">
+            <a href="{% url 'pricing' %}" class="block px-4 py-3 text-sm text-zinc-200 hover:bg-black hover:text-yellow-400 sm:hidden">Pricing</a>
+            <a href="{% url 'how_it_works' %}" class="block px-4 py-3 text-sm text-zinc-200 hover:bg-black hover:text-yellow-400">How it works</a>
+            <a href="{% url 'privacy' %}" class="block px-4 py-3 text-sm text-zinc-200 hover:bg-black hover:text-yellow-400">Privacy</a>
+          </div>
+        </details>
       </div>
     </div>
   </header>
 
-  {% block body %}{% endblock %}
+  <div class="flex flex-1 flex-col">
+    {% block body %}{% endblock %}
+  </div>
+
+  <footer class="mt-auto shrink-0 border-t border-zinc-800 bg-kora-graphite">
+    <div class="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+      <a href="{% url 'landing' %}" class="flex items-center no-underline" aria-label="Kora">
+        <img src="{% static 'img/kora-logo.png' %}" alt="Kora" class="h-4 w-auto">
+      </a>
+      <nav class="flex flex-wrap gap-x-1 gap-y-1 text-sm text-zinc-400">
+        <a href="{% url 'pricing' %}" class="inline-flex min-h-11 items-center px-2 hover:text-yellow-400">Pricing</a>
+        <a href="{% url 'how_it_works' %}" class="inline-flex min-h-11 items-center px-2 hover:text-yellow-400">How it works</a>
+        <a href="{% url 'privacy' %}" class="inline-flex min-h-11 items-center px-2 hover:text-yellow-400">Privacy</a>
+        <a href="{% url 'login' %}" class="inline-flex min-h-11 items-center px-2 hover:text-yellow-400">Sign in</a>
+      </nav>
+    </div>
+  </footer>
+
+  {% include 'includes/messages.html' %}
+
+  <script>
+    (function () {
+      var root = document.getElementById('kora-toasts');
+      if (!root) return;
+      function dismiss(toast) {
+        if (!toast || toast.classList.contains('is-leaving')) return;
+        toast.classList.add('is-leaving');
+        window.setTimeout(function () {
+          toast.remove();
+          if (!root.querySelector('[data-toast]')) root.remove();
+        }, 160);
+      }
+      root.querySelectorAll('[data-toast]').forEach(function (toast) {
+        var level = toast.getAttribute('data-toast-level') || 'info';
+        var ms = level === 'error' ? 7000 : 4500;
+        var timer = window.setTimeout(function () { dismiss(toast); }, ms);
+        var btn = toast.querySelector('.kora-toast-dismiss');
+        if (btn) {
+          btn.addEventListener('click', function () {
+            window.clearTimeout(timer);
+            dismiss(toast);
+          });
+        }
+      });
+    })();
+  </script>
+  <style>
+    .kora-toast {
+      opacity: 0;
+      transform: translateX(0.75rem);
+      animation: kora-toast-in 180ms ease-out forwards;
+    }
+    .kora-toast.is-leaving {
+      animation: kora-toast-out 160ms ease-in forwards;
+    }
+    @keyframes kora-toast-in {
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes kora-toast-out {
+      to { opacity: 0; transform: translateX(0.75rem); }
+    }
+  </style>
 
   {% block extra_js %}{% endblock %}
 </body>

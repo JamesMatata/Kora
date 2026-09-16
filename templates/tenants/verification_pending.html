@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Verification pending · Kora{% endblock %}
+
+{% block page_title %}Verification pending{% endblock %}
+
+{% block breadcrumbs %}
+  <span class="text-zinc-300">{{ school.name }}</span>
+{% endblock %}
+
+{% block content %}
+  <div class="mx-auto flex w-full max-w-xl flex-col justify-center space-y-6 py-8 text-left sm:min-h-[60vh] sm:text-center">
+    {% if rejected %}
+      <h2 class="text-2xl font-semibold text-zinc-100">Application declined</h2>
+      <p class="text-sm text-zinc-400">
+        We could not approve <span class="text-zinc-200">{{ school.name }}</span> at this time.
+      </p>
+      {% if school.rejection_reason %}
+        <p class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3 text-left text-sm text-zinc-300">
+          {{ school.rejection_reason }}
+        </p>
+      {% endif %}
+    {% else %}
+      <h2 class="text-2xl font-semibold text-zinc-100">Verification pending</h2>
+      <p class="text-sm text-zinc-400">
+        We’re reviewing <span class="text-zinc-200">{{ school.name }}</span>.
+        This may take up to <span class="text-zinc-200">2 business days</span> to complete.
+      </p>
+      <p class="text-sm text-zinc-500">
+        You can switch to another school anytime from the menu above.
+      </p>
+    {% endif %}
+
+    <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center sm:gap-3">
+      <a
+        href="{% url 'tenants:select' %}"
+        class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:w-auto"
+      >
+        Switch school
+      </a>
+      <a
+        href="{% url 'tenants:create' %}"
+        class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:w-auto"
+      >
+        Apply for another school
+      </a>
+    </div>
+  </div>
+{% endblock %}

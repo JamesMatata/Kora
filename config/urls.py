@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
+from django.conf import settings
+from django.conf.urls.static import static
 from django.urls import include, path
 
 from finance.views import (
@@ -8,11 +10,15 @@ from finance.views import (
     daraja_callback,
 )
 from communications.views import twilio_whatsapp_webhook
+from tenants.marketing_views import HowItWorksView, PricingView, PrivacyView
 from tenants.views import LandingView, SignUpView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', LandingView.as_view(), name='landing'),
+    path('pricing/', PricingView.as_view(), name='pricing'),
+    path('how-it-works/', HowItWorksView.as_view(), name='how_it_works'),
+    path('privacy/', PrivacyView.as_view(), name='privacy'),
     path(
         'accounts/login/',
         auth_views.LoginView.as_view(template_name='registration/login.html'),
@@ -48,3 +54,6 @@ urlpatterns = [
     ),
     path('', include('dashboard.urls')),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

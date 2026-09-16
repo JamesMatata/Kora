@@ -1,0 +1,127 @@
+{% extends "public_base.html" %}
+
+{% block title %}Pricing · Kora{% endblock %}
+
+{% block meta %}
+  <meta name="description" content="Kora pricing for Kenyan schools — per active student per term, with a free trial and fair mid-term adjustments.">
+{% endblock %}
+
+{% block extra_css %}
+    .tier-col + .tier-col {
+      border-top: 1px solid rgb(39 39 42);
+    }
+    @media (min-width: 1024px) {
+      .tier-col + .tier-col {
+        border-top: 0;
+        border-left: 1px solid rgb(39 39 42);
+      }
+    }
+    .bill-row + .bill-row {
+      border-top: 1px solid rgb(39 39 42);
+    }
+{% endblock %}
+
+{% block body %}
+  <main class="flex-1 pt-14">
+    <section class="bg-black">
+      <div class="mx-auto max-w-6xl px-4 py-20 lg:px-8 lg:py-28">
+        <h1 class="max-w-3xl text-4xl font-bold tracking-tight text-zinc-50 sm:text-6xl lg:leading-[1.05]">
+          Clear fees for<br class="hidden sm:block">
+          <span class="text-yellow-400">school calendars.</span>
+        </h1>
+        <p class="mt-6 max-w-xl text-base leading-relaxed text-zinc-400 sm:text-xl">
+          Pay per active student each term. Free trial after we verify your school — no surprise mid-term rewrites of your main invoice.
+        </p>
+        <div class="mt-10 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+          {% if user.is_authenticated %}
+            <a href="{% url 'tenants:create' %}" class="inline-flex min-h-12 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-6 py-3 text-sm font-semibold text-black hover:bg-yellow-300 sm:w-auto">Apply for a school</a>
+          {% else %}
+            <a href="{% url 'signup' %}" class="inline-flex min-h-12 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-6 py-3 text-sm font-semibold text-black hover:bg-yellow-300 sm:w-auto">Get started</a>
+          {% endif %}
+          <a href="{% url 'how_it_works' %}" class="inline-flex min-h-12 w-full items-center justify-center rounded-md border border-zinc-700 px-6 py-3 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400 sm:w-auto">How it works</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="border-t border-zinc-800 bg-kora-graphite">
+      <div class="mx-auto max-w-6xl px-4 py-20 lg:px-8 lg:py-28">
+        <div class="grid lg:grid-cols-3">
+          {% for tier in tiers %}
+            <div class="tier-col flex flex-col py-10 lg:px-8 lg:py-2 lg:first:pl-0 lg:last:pr-0">
+              <h2 class="text-2xl font-semibold {% if forloop.counter == 1 %}text-yellow-400{% else %}text-zinc-100{% endif %}">{{ tier.name }}</h2>
+              <p class="mt-2 text-sm text-zinc-500">{{ tier.range }}</p>
+              <p class="mt-8 text-3xl font-semibold tracking-tight text-zinc-50 sm:text-4xl">
+                KSh {{ tier.rate }}
+              </p>
+              <p class="mt-1 text-sm text-zinc-500">per student / term</p>
+              {% if tier.floor %}
+                <p class="mt-4 text-sm text-zinc-500">Minimum invoice KSh {{ tier.floor }} / term</p>
+              {% else %}
+                <p class="mt-4 text-sm text-zinc-500">No minimum floor</p>
+              {% endif %}
+              <p class="mt-6 text-sm leading-relaxed text-zinc-400">{{ tier.blurb }}</p>
+              <p class="mt-auto pt-8 text-sm text-zinc-500">
+                Example at {{ tier.example.headcount }} students:
+                <span class="text-zinc-300">KSh {{ tier.example.full_amount }} / term</span>
+              </p>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section class="border-t border-zinc-800 bg-black">
+      <div class="mx-auto max-w-6xl px-4 py-20 lg:px-8 lg:py-28">
+        <h2 class="max-w-2xl text-3xl font-semibold tracking-tight text-zinc-100 sm:text-5xl">
+          How we bill fairly.
+        </h2>
+        <div class="mt-16">
+          <div class="bill-row grid gap-4 py-10 sm:grid-cols-[minmax(0,16rem)_1fr] sm:gap-12">
+            <h3 class="text-xl font-semibold text-yellow-400">{{ billing_settings.trial_days }}-day trial</h3>
+            <p class="text-sm leading-relaxed text-zinc-400 sm:text-base">
+              Starts after your school is approved — then {{ billing_settings.post_trial_grace_days }} days to pay the first invoice.
+            </p>
+          </div>
+          <div class="bill-row grid gap-4 py-10 sm:grid-cols-[minmax(0,16rem)_1fr] sm:gap-12">
+            <h3 class="text-xl font-semibold text-yellow-400">Day {{ billing_settings.term_half_due_days }} census</h3>
+            <p class="text-sm leading-relaxed text-zinc-400 sm:text-base">
+              Your main term fee locks to active students that day. Joins and leaves after that don’t rewrite it.
+            </p>
+          </div>
+          <div class="bill-row grid gap-4 py-10 sm:grid-cols-[minmax(0,16rem)_1fr] sm:gap-12">
+            <h3 class="text-xl font-semibold text-yellow-400">End-of-term true-up</h3>
+            <p class="text-sm leading-relaxed text-zinc-400 sm:text-base">
+              Net growth is billed at half rate; net losses become credit on the next term (no cash refunds). Small churn under {{ billing_settings.true_up_min_delta }} students is ignored.
+            </p>
+          </div>
+          <div class="bill-row grid gap-4 py-10 sm:grid-cols-[minmax(0,16rem)_1fr] sm:gap-12">
+            <h3 class="text-xl font-semibold text-yellow-400">Payment checkpoints</h3>
+            <p class="text-sm leading-relaxed text-zinc-400 sm:text-base">
+              At least half by day {{ billing_settings.term_half_due_days }}, full by day {{ billing_settings.term_full_due_days }}.
+            </p>
+          </div>
+        </div>
+        <p class="mt-4 max-w-2xl text-sm text-zinc-500">{{ billing_settings.census_policy_text }}</p>
+      </div>
+    </section>
+
+    <section class="border-t border-zinc-800 bg-kora-graphite">
+      <div class="mx-auto max-w-6xl px-4 py-20 lg:px-8 lg:py-28">
+        <h2 class="max-w-2xl text-3xl font-semibold tracking-tight text-zinc-100 sm:text-5xl">
+          Ready to apply?
+        </h2>
+        <p class="mt-5 max-w-lg text-base leading-relaxed text-zinc-400">
+          We verify every school manually — usually within 2 business days — so parents and staff aren’t exposed to fake campuses.
+        </p>
+        <div class="mt-10 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+          {% if user.is_authenticated %}
+            <a href="{% url 'tenants:create' %}" class="inline-flex min-h-12 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-6 py-3 text-sm font-semibold text-black hover:bg-yellow-300 sm:w-auto">Apply for a school</a>
+          {% else %}
+            <a href="{% url 'signup' %}" class="inline-flex min-h-12 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-6 py-3 text-sm font-semibold text-black hover:bg-yellow-300 sm:w-auto">Create account</a>
+          {% endif %}
+          <a href="{% url 'privacy' %}" class="inline-flex min-h-12 w-full items-center justify-center rounded-md border border-zinc-700 px-6 py-3 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400 sm:w-auto">Privacy &amp; trust</a>
+        </div>
+      </div>
+    </section>
+  </main>
+{% endblock %}

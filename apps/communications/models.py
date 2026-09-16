@@ -17,7 +17,16 @@ class ParentContact(TenantAwareModel):
         max_length=16,
         validators=[E164_PHONE_VALIDATOR],
         db_index=True,
-        help_text='E.164 format, e.g. +254712345678',
+        help_text='E.164 format, e.g. +254712345678 (roster / M-Pesa).',
+    )
+    whatsapp_peer_id = models.CharField(
+        max_length=64,
+        blank=True,
+        db_index=True,
+        help_text=(
+            'Optional Twilio WhatsApp Sandbox peer id (e.g. KE.2117397715508204). '
+            'When set, outbound WhatsApp uses this instead of phone_number.'
+        ),
     )
     parent_name = models.CharField(max_length=255, blank=True)
     students = models.ManyToManyField(
@@ -83,6 +92,23 @@ class ConversationSession(TenantAwareModel):
         blank=True,
         related_name='conversation_sessions',
         help_text='Locks context when a parent has multiple children.',
+    )
+    admission_confirmed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=(
+            'When the parent confirmed the active student admission number '
+            'on this session (extra gate after phone match).'
+        ),
+    )
+    agent_awaiting = models.CharField(
+        max_length=32,
+        blank=True,
+        default='',
+        help_text=(
+            'In-flight bot prompt context: empty, partial_amount, promise_date, '
+            'or menu. Digits are amounts when awaiting partial_amount.'
+        ),
     )
     status = models.CharField(
         max_length=32,

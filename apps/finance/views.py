@@ -172,7 +172,8 @@ class TermFeePlanCreateView(LoginRequiredMixin, View):
             {
                 'page_title': 'Add fee plan',
                 'form': form,
-                'categories': form.categories,
+                'line_rows': form.line_rows,
+                'known_categories': form.known_categories,
             },
         )
 
@@ -189,7 +190,8 @@ class TermFeePlanCreateView(LoginRequiredMixin, View):
                 {
                     'page_title': 'Add fee plan',
                     'form': form,
-                    'categories': form.categories,
+                    'line_rows': form.line_rows,
+                    'known_categories': form.known_categories,
                 },
                 status=400,
             )
@@ -224,10 +226,14 @@ def daraja_callback(request):
     """
     Public Safaricom Daraja STK callback.
 
-    Query: ?tenant_id=<school UUID>
+    Query: ?tenant_id=<school UUID>&token=<webhook secret>
     Always acknowledges with ResultCode 0 so Safaricom does not retry forever.
     """
-    tenant_id = (request.GET.get('tenant_id') or '').strip() or None
+    from finance.services.daraja_webhook import authenticate_daraja_callback
+
+    school = authenticate_daraja_callback(request)
+    if school is None:
+        return JsonResponse(ACK)
 
     try:
         payload = json.loads(request.body.decode('utf-8') or '{}')
@@ -238,11 +244,14 @@ def daraja_callback(request):
         payload = {}
 
     try:
-        result = reconcile_stk_callback(payload=payload, tenant_id=tenant_id)
+        result = reconcile_stk_callback(
+            payload=payload,
+            tenant_id=str(school.id),
+        )
     except Exception:
         logger.exception(
             'Daraja callback reconciliation failed tenant_id=%s',
-            tenant_id,
+            school.id,
         )
         result = ACK
 
@@ -252,8 +261,14 @@ def daraja_callback(request):
 @csrf_exempt
 @require_POST
 def daraja_c2b_validation(request):
-    """Safaricom C2B validation webhook (?tenant_id=)."""
-    tenant_id = (request.GET.get('tenant_id') or '').strip() or None
+    """Safaricom C2B validation webhook (?tenant_id=&token=)."""
+    from finance.services.daraja_webhook import authenticate_daraja_callback
+    from finance.services.reconciliation import C2B_REJECT
+
+    school = authenticate_daraja_callback(request)
+    if school is None:
+        return JsonResponse(C2B_REJECT)
+
     try:
         payload = json.loads(request.body.decode('utf-8') or '{}')
     except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
@@ -261,9 +276,12 @@ def daraja_c2b_validation(request):
     if not isinstance(payload, dict):
         payload = {}
     try:
-        result = validate_c2b_payment(payload=payload, tenant_id=tenant_id)
+        result = validate_c2b_payment(
+            payload=payload,
+            tenant_id=str(school.id),
+        )
     except Exception:
-        logger.exception('C2B validation failed tenant_id=%s', tenant_id)
+        logger.exception('C2B validation failed tenant_id=%s', school.id)
         result = C2B_ACCEPT
     return JsonResponse(result)
 
@@ -271,8 +289,13 @@ def daraja_c2b_validation(request):
 @csrf_exempt
 @require_POST
 def daraja_c2b_confirmation(request):
-    """Safaricom C2B confirmation webhook (?tenant_id=)."""
-    tenant_id = (request.GET.get('tenant_id') or '').strip() or None
+    """Safaricom C2B confirmation webhook (?tenant_id=&token=)."""
+    from finance.services.daraja_webhook import authenticate_daraja_callback
+
+    school = authenticate_daraja_callback(request)
+    if school is None:
+        return JsonResponse(C2B_ACCEPT)
+
     try:
         payload = json.loads(request.body.decode('utf-8') or '{}')
     except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
@@ -280,8 +303,11 @@ def daraja_c2b_confirmation(request):
     if not isinstance(payload, dict):
         payload = {}
     try:
-        result = reconcile_c2b_confirmation(payload=payload, tenant_id=tenant_id)
+        result = reconcile_c2b_confirmation(
+            payload=payload,
+            tenant_id=str(school.id),
+        )
     except Exception:
-        logger.exception('C2B confirmation failed tenant_id=%s', tenant_id)
+        logger.exception('C2B confirmation failed tenant_id=%s', school.id)
         result = C2B_ACCEPT
     return JsonResponse(result)

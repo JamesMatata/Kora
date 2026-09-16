@@ -93,6 +93,10 @@ def normalize_msisdn(phone_number: str) -> str:
 def resolve_credentials(school) -> DarajaCredentials:
     """
     Prefer school-encrypted Daraja keys; fall back to project-level .env keys.
+
+    In sandbox, always use the Safaricom test Lipa Na M-Pesa shortcode (174379).
+    School paybill (e.g. demo 562340) is for parent-facing copy / production only —
+    sandbox rejects unknown BusinessShortCode with "Merchant does not exist".
     """
     school_creds = school.get_mpesa_credentials()
     consumer_key = school_creds['consumer_key'] or getattr(
@@ -105,6 +109,26 @@ def resolve_credentials(school) -> DarajaCredentials:
     paybill = school_creds['paybill_number'] or getattr(
         settings, 'DARAJA_SHORTCODE', SANDBOX_SHORTCODE
     )
+
+    environment = resolve_daraja_environment(school)
+    if environment == 'sandbox':
+        sandbox_shortcode = (
+            getattr(settings, 'DARAJA_SHORTCODE', None) or SANDBOX_SHORTCODE
+        )
+        sandbox_shortcode = str(sandbox_shortcode).strip() or SANDBOX_SHORTCODE
+        if str(paybill).strip() != sandbox_shortcode:
+            logger.info(
+                'Sandbox STK: using shortcode %s instead of school paybill %s '
+                '(school=%s)',
+                sandbox_shortcode,
+                paybill,
+                getattr(school, 'code', school.pk),
+            )
+            paybill = sandbox_shortcode
+            # Password must be signed with the sandbox shortcode + sandbox passkey.
+            platform_passkey = (getattr(settings, 'DARAJA_PASSKEY', '') or '').strip()
+            if platform_passkey:
+                passkey = platform_passkey
 
     missing = [
         name
@@ -185,16 +209,21 @@ def _callback_url(school) -> str:
     domain = getattr(settings, 'SITE_DOMAIN', '').rstrip('/')
     if not domain:
         raise DarajaError('SITE_DOMAIN is not configured.')
-    return f'{domain}/api/v1/finance/daraja/callback/?tenant_id={school.id}'
+    token = school.ensure_daraja_webhook_token()
+    return (
+        f'{domain}/api/v1/finance/daraja/callback/'
+        f'?tenant_id={school.id}&token={token}'
+    )
 
 
 def _c2b_validation_url(school) -> str:
     domain = getattr(settings, 'SITE_DOMAIN', '').rstrip('/')
     if not domain:
         raise DarajaError('SITE_DOMAIN is not configured.')
+    token = school.ensure_daraja_webhook_token()
     return (
         f'{domain}/api/v1/finance/daraja/c2b/validation/'
-        f'?tenant_id={school.id}'
+        f'?tenant_id={school.id}&token={token}'
     )
 
 
@@ -202,9 +231,10 @@ def _c2b_confirmation_url(school) -> str:
     domain = getattr(settings, 'SITE_DOMAIN', '').rstrip('/')
     if not domain:
         raise DarajaError('SITE_DOMAIN is not configured.')
+    token = school.ensure_daraja_webhook_token()
     return (
         f'{domain}/api/v1/finance/daraja/c2b/confirmation/'
-        f'?tenant_id={school.id}'
+        f'?tenant_id={school.id}&token={token}'
     )
 
 

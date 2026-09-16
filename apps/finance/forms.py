@@ -104,7 +104,7 @@ class SchoolFeeChargeForm(FeeChargeForm):
 
 
 class TermFeePlanForm(forms.Form):
-    """Create a term fee plan with one or more vote-head amounts."""
+    """Create a term fee plan with school-defined fee line items."""
 
     name = forms.CharField(
         max_length=160,
@@ -142,47 +142,103 @@ class TermFeePlanForm(forms.Form):
     def __init__(self, *args, school=None, **kwargs):
         from academics.models import GradeLevel
         from finance.models import FeeCategory
-        from finance.services.invoicing import ensure_default_fee_categories
 
         super().__init__(*args, **kwargs)
         self.school = school
         if school is not None:
-            ensure_default_fee_categories(school)
             self.fields['grade_level'].queryset = GradeLevel.objects.filter(
                 school=school
             ).order_by('order', 'name')
-            self.categories = list(
-                FeeCategory.objects.filter(school=school).order_by('name')
+            self.known_categories = list(
+                FeeCategory.objects.filter(school=school)
+                .order_by('name')
+                .values_list('name', flat=True)
             )
         else:
             self.fields['grade_level'].queryset = GradeLevel.objects.none()
-            self.categories = []
+            self.known_categories = []
+        self.line_rows = self._parse_line_rows_raw()
+
+    def _parse_line_rows_raw(self) -> list[dict[str, str]]:
+        """Preserve submitted (or default empty) rows for redisplay."""
+        if not self.data:
+            return [{'name': '', 'amount': ''}]
+
+        indices: set[int] = set()
+        for key in self.data.keys():
+            if key.startswith('item_name_'):
+                suffix = key[len('item_name_') :]
+                if suffix.isdigit():
+                    indices.add(int(suffix))
+            elif key.startswith('item_amount_'):
+                suffix = key[len('item_amount_') :]
+                if suffix.isdigit():
+                    indices.add(int(suffix))
+
+        if not indices:
+            return [{'name': '', 'amount': ''}]
+
+        rows = []
+        for index in sorted(indices):
+            rows.append(
+                {
+                    'name': (self.data.get(f'item_name_{index}') or '').strip(),
+                    'amount': (self.data.get(f'item_amount_{index}') or '').strip(),
+                }
+            )
+        return rows or [{'name': '', 'amount': ''}]
 
     def clean(self):
         cleaned = super().clean()
         cleaned['name'] = (cleaned.get('name') or '').strip()
         cleaned['term'] = (cleaned.get('term') or '').strip()
 
-        line_items = []
-        for category in self.categories:
-            raw = (self.data.get(f'amount_{category.pk}') or '').strip()
-            if not raw:
+        from finance.models import FeeCategory
+
+        parsed: list[tuple[str, Decimal]] = []
+        seen_names: set[str] = set()
+        for row in self.line_rows:
+            name = (row.get('name') or '').strip()
+            raw_amount = (row.get('amount') or '').strip()
+            if not name and not raw_amount:
                 continue
+            if not name:
+                raise ValidationError('Each fee item needs a name.')
+            if not raw_amount:
+                raise ValidationError(f'Enter an amount for “{name}”.')
             try:
-                amount = Decimal(raw).quantize(Decimal('0.01'))
+                amount = Decimal(raw_amount).quantize(Decimal('0.01'))
             except (InvalidOperation, TypeError) as exc:
-                raise ValidationError(
-                    f'Invalid amount for {category.name}.'
-                ) from exc
-            if amount < 0:
-                raise ValidationError(f'{category.name} cannot be negative.')
-            if amount > 0:
-                line_items.append((category, amount))
-        if not line_items:
-            raise ValidationError('Enter at least one vote-head amount greater than 0.')
+                raise ValidationError(f'Invalid amount for “{name}”.') from exc
+            if amount <= 0:
+                raise ValidationError(f'“{name}” must be greater than 0.')
+            key = name.casefold()
+            if key in seen_names:
+                raise ValidationError(f'Duplicate fee item “{name}”.')
+            seen_names.add(key)
+            parsed.append((name, amount))
+
+        if not parsed:
+            raise ValidationError('Add at least one fee item with a name and amount.')
+
+        if self.school is None:
+            raise ValidationError('No school context available.')
+
+        line_items = []
+        for name, amount in parsed:
+            category = FeeCategory.objects.filter(
+                school=self.school,
+                name__iexact=name,
+            ).first()
+            if category is None:
+                category = FeeCategory.objects.create(
+                    school=self.school,
+                    name=name,
+                )
+            line_items.append((category, amount))
         cleaned['line_items'] = line_items
 
-        if self.school is not None and cleaned.get('term'):
+        if cleaned.get('term'):
             from finance.models import TermFeePlan
 
             term = cleaned['term']

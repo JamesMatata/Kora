@@ -41,9 +41,49 @@ def _normalize_e164(phone: str) -> str:
     return raw
 
 
+_SANDBOX_PEER_RE = re.compile(r'^[A-Za-z]{2}\.\d{6,32}$')
+
+
+def normalize_whatsapp_identity(phone: str) -> str:
+    """
+    Normalize a Twilio WhatsApp destination/source identity.
+
+    Supports:
+      - E.164 (+2547…)
+      - Sandbox peer ids (KE.2117397715508204) used by some WhatsApp Sandbox joins
+    """
+    raw = (phone or '').strip().replace(' ', '').replace('-', '')
+    if not raw:
+        raise ValueError('Phone number is required.')
+    if raw.lower().startswith('whatsapp:'):
+        raw = raw.split(':', 1)[1]
+    if _SANDBOX_PEER_RE.fullmatch(raw):
+        # Keep country prefix casing consistent with Twilio (e.g. KE.…).
+        country, _, rest = raw.partition('.')
+        return f'{country.upper()}.{rest}'
+    return _normalize_e164(raw)
+
+
+def is_sandbox_peer_id(phone: str) -> bool:
+    try:
+        ident = normalize_whatsapp_identity(phone)
+    except ValueError:
+        return False
+    return bool(_SANDBOX_PEER_RE.fullmatch(ident))
+
+
 def _whatsapp_address(phone: str) -> str:
-    e164 = _normalize_e164(phone)
-    return f'whatsapp:{e164}'
+    return f'whatsapp:{normalize_whatsapp_identity(phone)}'
+
+
+def parent_whatsapp_destination(parent) -> str:
+    """
+    Prefer sandbox peer id when set (Twilio WhatsApp Sandbox), else E.164 phone.
+    """
+    peer = (getattr(parent, 'whatsapp_peer_id', None) or '').strip()
+    if peer:
+        return normalize_whatsapp_identity(peer)
+    return _normalize_e164(parent.phone_number)
 
 
 def resolve_twilio_sender(school) -> str:
@@ -87,7 +127,7 @@ def send_whatsapp_message(
 
     message_log = None
     try:
-        to_e164 = _normalize_e164(to_phone)
+        to_identity = normalize_whatsapp_identity(to_phone)
         from_e164 = resolve_twilio_sender(school)
     except (ValueError, TwilioConfigError) as exc:
         logger.warning('WhatsApp send blocked: %s', exc)
@@ -107,14 +147,14 @@ def send_whatsapp_message(
         client = get_twilio_client()
         twilio_message = client.messages.create(
             from_=_whatsapp_address(from_e164),
-            to=_whatsapp_address(to_e164),
+            to=_whatsapp_address(to_identity),
             body=body or '',
         )
     except TwilioRestException as exc:
         logger.warning(
             'Twilio WhatsApp failed school=%s to=%s: %s',
             getattr(school, 'id', None),
-            to_e164,
+            to_identity,
             exc,
         )
         if message_log is not None:
@@ -131,7 +171,7 @@ def send_whatsapp_message(
         logger.exception(
             'Unexpected Twilio error school=%s to=%s',
             getattr(school, 'id', None),
-            to_e164,
+            to_identity,
         )
         if message_log is not None:
             message_log.delivery_status = MessageLog.DeliveryStatus.FAILED

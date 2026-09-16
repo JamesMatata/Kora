@@ -34,7 +34,7 @@
   </script>
 
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-  <link rel="stylesheet" href="{% static 'css/kora.css' %}">
+  <link rel="stylesheet" href="{% static 'css/kora.css' %}?v=select-inset-2">
   <meta name="csrf-token" content="{{ csrf_token }}">
   <script>
     (function () {
@@ -62,6 +62,24 @@
     ::selection {
       background: #facc15;
       color: #000000;
+    }
+
+    /* Selects: hide native arrow (ignores padding) + inset custom chevron */
+    html body select:not([multiple]) {
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
+      appearance: none !important;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 24 24'%3E%3Cpath stroke='%23a1a1aa' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
+      background-repeat: no-repeat !important;
+      background-position: right 1rem center !important;
+      background-size: 1rem 1rem !important;
+      padding-right: 2.75rem !important;
+    }
+    html body select:not([multiple])::-ms-expand {
+      display: none;
+    }
+    html body select:not([multiple]):disabled {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' viewBox='0 0 24 24'%3E%3Cpath stroke='%2352525b' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
     }
 
     /* Thin black scrollbars platform-wide (WebKit + Firefox) */
@@ -139,6 +157,28 @@
       overflow: hidden;
       background-color: #09090b;
       border-right: 1px solid #27272a;
+    }
+
+    @media (max-width: 1023px) {
+      #app-sidebar {
+        width: 100%;
+        border-right: none;
+        transition: transform 0.25s ease-out;
+      }
+
+      #app-sidebar .sidebar-inner {
+        width: 100%;
+        min-width: 100%;
+      }
+
+      #app-sidebar .nav-link {
+        min-height: 2.75rem;
+      }
+    }
+
+    /* Collapsed-desktop flyout only — never show inline in the drawer */
+    .avatar-flyout {
+      display: none;
     }
 
     .sidebar-collapsed {
@@ -239,19 +279,10 @@
         width: 1.25rem !important;
       }
 
-      .avatar-flyout {
-        display: none;
-      }
-
-      #app-sidebar.sidebar-collapsed .profile-avatar-menu:hover .avatar-flyout,
-      #app-sidebar.sidebar-collapsed .profile-avatar-menu:focus-within .avatar-flyout,
-      #app-sidebar.sidebar-collapsed .profile-avatar-menu.is-open .avatar-flyout {
+      .avatar-flyout.kora-flyout-open {
         display: block;
         position: fixed;
-        left: 3.25rem;
-        bottom: 3rem;
-        margin-left: 0.25rem;
-        z-index: 60;
+        z-index: 80;
       }
 
       .sidebar-rail {
@@ -271,14 +302,18 @@
 
   {% block extra_head %}{% endblock %}
 </head>
-<body class="h-dvh overflow-hidden font-sans antialiased bg-kora-black text-kora-ink" hx-boost="true">
+<body class="h-dvh overflow-hidden font-sans antialiased bg-kora-black text-kora-ink {% block body_class %}{% endblock %}" hx-boost="true">
+  {% block navbar %}
   {% include 'includes/navbar.html' %}
+  {% endblock %}
 
   {# pt-14 clears the fixed navbar; flex-1 child fills the rest of the viewport. #}
   <div class="flex h-dvh flex-col bg-black pt-14">
     <div class="flex min-h-0 flex-1">
+      {% block sidebar_region %}
       <div id="sidebar-rail" class="sidebar-rail hidden shrink-0 bg-zinc-950 lg:block" aria-hidden="true"></div>
       {% include 'includes/sidebar.html' %}
+      {% endblock %}
 
       <div class="flex min-h-0 min-w-0 flex-1 flex-col bg-kora-black">
         <main class="flex min-h-0 flex-1 flex-col {% block main_overflow %}overflow-y-auto{% endblock %}">
@@ -291,14 +326,14 @@
             </nav>
             {% endblock %}
 
-            {% include 'includes/messages.html' %}
-
             {% block content %}{% endblock %}
           </div>
         </main>
       </div>
     </div>
   </div>
+
+  {% include 'includes/messages.html' %}
 
   <script>
     (function () {
@@ -349,6 +384,8 @@
       const backdrop = document.getElementById('sidebar-backdrop');
       if (!sidebar || !toggle) return;
 
+      const iconOpen = toggle.querySelector('.sidebar-icon-open');
+      const iconClose = toggle.querySelector('.sidebar-icon-close');
       const mq = window.matchMedia('(min-width: 1024px)');
 
       function readCollapsedPref() {
@@ -366,29 +403,41 @@
         document.documentElement.classList.toggle('sidebar-pref-collapsed', collapsed);
       }
 
+      function syncToggleIcons(expanded) {
+        if (!iconOpen || !iconClose) return;
+        const showClose = expanded && !mq.matches;
+        iconOpen.classList.toggle('hidden', showClose);
+        iconClose.classList.toggle('hidden', !showClose);
+      }
+
       function setExpanded(expanded, persist) {
         toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        toggle.setAttribute('aria-label', expanded && !mq.matches ? 'Close menu' : 'Open menu');
+        syncToggleIcons(expanded);
         if (mq.matches) {
           const collapsed = !expanded;
           sidebar.classList.toggle('sidebar-collapsed', collapsed);
           if (rail) rail.classList.toggle('sidebar-collapsed', collapsed);
-          backdrop.classList.add('hidden');
+          if (backdrop) backdrop.classList.add('hidden');
           sidebar.classList.remove('-translate-x-full');
           sidebar.classList.add('translate-x-0');
           if (persist !== false) writeCollapsedPref(collapsed);
           if (window.KoraOverlay) window.KoraOverlay.reset();
+          document.dispatchEvent(
+            new CustomEvent('kora:sidebar-collapse', { detail: { collapsed: collapsed } })
+          );
         } else {
           sidebar.classList.remove('sidebar-collapsed');
           if (rail) rail.classList.remove('sidebar-collapsed');
           if (expanded) {
             sidebar.classList.remove('-translate-x-full');
             sidebar.classList.add('translate-x-0');
-            backdrop.classList.remove('hidden');
+            if (backdrop) backdrop.classList.remove('hidden');
             if (window.KoraOverlay) window.KoraOverlay.lock();
           } else {
             sidebar.classList.add('-translate-x-full');
             sidebar.classList.remove('translate-x-0');
-            backdrop.classList.add('hidden');
+            if (backdrop) backdrop.classList.add('hidden');
             if (window.KoraOverlay) window.KoraOverlay.unlock();
           }
         }
@@ -398,14 +447,23 @@
       let expanded = mq.matches ? !readCollapsedPref() : false;
       setExpanded(expanded, false);
 
+      function closeMobileDrawer() {
+        if (mq.matches) return;
+        expanded = false;
+        setExpanded(false, false);
+      }
+
       toggle.addEventListener('click', function () {
         expanded = !expanded;
         setExpanded(expanded, true);
       });
 
-      backdrop.addEventListener('click', function () {
-        expanded = false;
-        setExpanded(expanded, mq.matches);
+      if (backdrop) {
+        backdrop.addEventListener('click', closeMobileDrawer);
+      }
+
+      sidebar.querySelectorAll('a.nav-link').forEach(function (link) {
+        link.addEventListener('click', closeMobileDrawer);
       });
 
       mq.addEventListener('change', function () {
@@ -447,6 +505,36 @@
   </script>
 
   <script>
+    (function () {
+      const root = document.getElementById('nav-profile-menu');
+      const toggle = document.getElementById('nav-profile-toggle');
+      const menu = document.getElementById('nav-profile-dropdown');
+      if (!root || !toggle || !menu) return;
+
+      function closeMenu() {
+        menu.classList.add('hidden');
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+      function openMenu() {
+        menu.classList.remove('hidden');
+        toggle.setAttribute('aria-expanded', 'true');
+      }
+
+      toggle.addEventListener('click', function (event) {
+        event.stopPropagation();
+        if (menu.classList.contains('hidden')) openMenu();
+        else closeMenu();
+      });
+      document.addEventListener('click', function (event) {
+        if (!root.contains(event.target)) closeMenu();
+      });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') closeMenu();
+      });
+    })();
+  </script>
+
+  <script>
     document.body.addEventListener('htmx:configRequest', function (event) {
       var token = document.querySelector('meta[name="csrf-token"]');
       if (token) {
@@ -458,23 +546,110 @@
     (function () {
       const menu = document.querySelector('.profile-avatar-menu');
       const trigger = document.querySelector('.profile-avatar-trigger');
-      if (!menu || !trigger) return;
+      const flyout = menu ? menu.querySelector('.avatar-flyout') : null;
+      if (!menu || !trigger || !flyout) return;
+
+      let placeholder = null;
+      let open = false;
+
+      function sidebarCollapsed() {
+        const sidebar = document.getElementById('app-sidebar');
+        return !!(sidebar && sidebar.classList.contains('sidebar-collapsed'));
+      }
+
+      function placeFlyout() {
+        const rect = trigger.getBoundingClientRect();
+        flyout.style.left = Math.round(rect.right + 4) + 'px';
+        flyout.style.bottom = Math.round(window.innerHeight - rect.bottom) + 'px';
+        flyout.style.top = 'auto';
+      }
+
+      function showFlyout() {
+        if (!sidebarCollapsed()) return;
+        if (flyout.parentNode !== document.body) {
+          placeholder = document.createComment('avatar-flyout');
+          flyout.parentNode.insertBefore(placeholder, flyout);
+          document.body.appendChild(flyout);
+        }
+        placeFlyout();
+        flyout.classList.add('kora-flyout-open');
+        open = true;
+        trigger.setAttribute('aria-expanded', 'true');
+        menu.classList.add('is-open');
+      }
+
+      function hideFlyout() {
+        if (!open && !flyout.classList.contains('kora-flyout-open')) return;
+        flyout.classList.remove('kora-flyout-open');
+        open = false;
+        trigger.setAttribute('aria-expanded', 'false');
+        menu.classList.remove('is-open');
+        if (placeholder && placeholder.parentNode && flyout.parentNode === document.body) {
+          placeholder.parentNode.insertBefore(flyout, placeholder);
+          placeholder.remove();
+          placeholder = null;
+        }
+      }
+
+      menu.addEventListener('mouseenter', showFlyout);
+      menu.addEventListener('mouseleave', function (event) {
+        if (flyout.contains(event.relatedTarget)) return;
+        hideFlyout();
+      });
+      flyout.addEventListener('mouseleave', function (event) {
+        if (menu.contains(event.relatedTarget)) return;
+        hideFlyout();
+      });
 
       trigger.addEventListener('click', function (event) {
         event.stopPropagation();
-        const sidebar = document.getElementById('app-sidebar');
-        if (!sidebar || !sidebar.classList.contains('sidebar-collapsed')) return;
-        menu.classList.toggle('is-open');
-        trigger.setAttribute(
-          'aria-expanded',
-          menu.classList.contains('is-open') ? 'true' : 'false'
-        );
+        if (!sidebarCollapsed()) return;
+        if (open) hideFlyout();
+        else showFlyout();
       });
 
       document.addEventListener('click', function (event) {
-        if (!menu.contains(event.target)) {
-          menu.classList.remove('is-open');
-          trigger.setAttribute('aria-expanded', 'false');
+        if (!open) return;
+        if (menu.contains(event.target) || flyout.contains(event.target)) return;
+        hideFlyout();
+      });
+
+      window.addEventListener('resize', function () {
+        if (!sidebarCollapsed()) hideFlyout();
+        else if (open) placeFlyout();
+      });
+
+      document.addEventListener('kora:sidebar-collapse', function (event) {
+        if (!event.detail || !event.detail.collapsed) hideFlyout();
+      });
+    })();
+  </script>
+  <script>
+    (function () {
+      var root = document.getElementById('kora-toasts');
+      if (!root) return;
+
+      function dismiss(toast) {
+        if (!toast || toast.classList.contains('is-leaving')) return;
+        toast.classList.add('is-leaving');
+        window.setTimeout(function () {
+          toast.remove();
+          if (!root.querySelector('[data-toast]')) root.remove();
+        }, 160);
+      }
+
+      root.querySelectorAll('[data-toast]').forEach(function (toast) {
+        var level = toast.getAttribute('data-toast-level') || 'info';
+        var ms = level === 'error' ? 7000 : 4500;
+        var timer = window.setTimeout(function () {
+          dismiss(toast);
+        }, ms);
+        var btn = toast.querySelector('.kora-toast-dismiss');
+        if (btn) {
+          btn.addEventListener('click', function () {
+            window.clearTimeout(timer);
+            dismiss(toast);
+          });
         }
       });
     })();

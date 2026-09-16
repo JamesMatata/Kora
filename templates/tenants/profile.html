@@ -30,7 +30,7 @@
       <button
         type="button"
         id="open-password-modal"
-        class="shrink-0 rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+        class="inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:w-auto sm:py-2"
       >
         Change password
       </button>
@@ -69,7 +69,7 @@
       <div class="flex flex-wrap gap-3 pt-2">
         <button
           type="submit"
-          class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+          class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:w-auto"
         >
           Save profile
         </button>
@@ -79,7 +79,8 @@
     {% if user_memberships %}
       <div class="space-y-3">
         <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Your schools</p>
-        <div class="overflow-x-auto rounded-md border border-zinc-800">
+
+        <div class="hidden overflow-x-auto rounded-md border border-zinc-800 md:block">
           <table class="min-w-full border-collapse text-left text-sm">
             <thead class="bg-black">
               <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
@@ -103,6 +104,16 @@
             </tbody>
           </table>
         </div>
+
+        <ul class="space-y-2 md:hidden">
+          {% for membership in user_memberships %}
+            <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+              <p class="font-medium text-zinc-100">{{ membership.school.name }}</p>
+              <p class="mt-1 font-mono text-[10px] uppercase tracking-wider text-yellow-400">{{ membership.role_label }}</p>
+              <p class="mt-1 font-mono text-xs text-zinc-500">{{ membership.school.code }}</p>
+            </li>
+          {% endfor %}
+        </ul>
       </div>
     {% endif %}
   </div>
@@ -110,18 +121,18 @@
   <div id="password-backdrop" class="hidden fixed inset-0 z-50 bg-black/80" aria-hidden="true"></div>
   <div
     id="password-modal"
-    class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"
+    class="hidden fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
     role="dialog"
     aria-modal="true"
     aria-labelledby="password-modal-title"
   >
-    <div class="w-full max-w-md rounded-md border border-zinc-800 bg-zinc-950 p-5">
+    <div class="max-h-[90dvh] w-full overflow-y-auto rounded-t-md border border-zinc-800 bg-zinc-950 p-5 sm:max-w-md sm:rounded-md">
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 id="password-modal-title" class="text-sm font-semibold text-zinc-100">Change password</h3>
           <p class="mt-1 text-sm text-zinc-400">Enter your current password, then choose a new one.</p>
         </div>
-        <button type="button" id="password-close" class="text-zinc-500 hover:text-yellow-400" aria-label="Close">✕</button>
+        <button type="button" id="password-close" class="inline-flex h-11 w-11 items-center justify-center text-zinc-500 hover:text-yellow-400" aria-label="Close">✕</button>
       </div>
 
       <form
@@ -155,17 +166,17 @@
           </div>
         {% endfor %}
 
-        <div class="flex flex-wrap justify-end gap-2 pt-1">
+        <div class="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
           <button
             type="button"
             id="password-cancel"
-            class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+            class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
           >
             Cancel
           </button>
           <button
             type="submit"
-            class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+            class="inline-flex min-h-11 items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300"
           >
             Update password
           </button>

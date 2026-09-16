@@ -24,26 +24,26 @@
         Resend will force another message.
       </p>
     {% endif %}
-    <div class="flex flex-wrap gap-2">
+    <div class="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
       <button
         type="button"
         onclick="window.print()"
-        class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+        class="inline-flex min-h-11 items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:min-h-0 sm:py-2"
       >
         Print / Save PDF
       </button>
       <a
         href="{% url 'finance:payment_receipt_pdf' payment.pk %}"
-        class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400"
+        class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400 sm:min-h-0 sm:py-2"
       >
         Download PDF
       </a>
-      <form method="post" action="{% url 'finance:payment_receipt_whatsapp' payment.pk %}">
+      <form method="post" action="{% url 'finance:payment_receipt_whatsapp' payment.pk %}" class="contents sm:block">
         {% csrf_token %}
         <button
           type="submit"
           {% if parent_whatsapp_paused %}disabled{% endif %}
-          class="rounded-md border px-4 py-2 text-sm font-semibold {% if parent_whatsapp_paused %}cursor-not-allowed border-zinc-900 text-zinc-600{% else %}border-zinc-800 text-zinc-200 hover:border-yellow-400 hover:text-yellow-400{% endif %}"
+          class="inline-flex min-h-11 w-full items-center justify-center rounded-md border px-4 py-2.5 text-sm font-semibold sm:min-h-0 sm:w-auto sm:py-2 {% if parent_whatsapp_paused %}cursor-not-allowed border-zinc-900 text-zinc-600{% else %}border-zinc-800 text-zinc-200 hover:border-yellow-400 hover:text-yellow-400{% endif %}"
           title="{% if parent_whatsapp_paused %}Parent paused WhatsApp (STOP){% elif receipt_whatsapp_sent_at %}Force resend receipt{% else %}Send receipt on WhatsApp{% endif %}"
         >
           {% if receipt_whatsapp_sent_at %}Resend WhatsApp{% else %}Send WhatsApp{% endif %}
@@ -51,14 +51,14 @@
       </form>
       <a
         href="{% url 'finance:student_fee_statement' student.admission_number %}"
-        class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400"
+        class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400 sm:min-h-0 sm:py-2"
       >
         Fee statement
       </a>
     </div>
   </div>
 
-  <article class="mx-auto max-w-2xl rounded-md border border-zinc-800 bg-white p-8 text-zinc-900 print:border-0 print:p-0">
+  <article class="mx-auto max-w-2xl rounded-md border border-zinc-800 bg-white p-5 text-zinc-900 sm:p-8 print:border-0 print:p-0">
     <header class="border-b border-zinc-200 pb-4">
       <h1 class="text-2xl font-semibold tracking-tight">{{ payment.school.name }}</h1>
       <p class="mt-1 text-sm text-zinc-600">Official fee payment receipt</p>

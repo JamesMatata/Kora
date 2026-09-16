@@ -1,41 +1,413 @@
 {% extends "base.html" %}
 
-{% block title %}Create school · Kora{% endblock %}
+{% block title %}Apply to add a school · Kora{% endblock %}
 
-{% block page_title %}Create school{% endblock %}
+{% block page_title %}Apply to add a school{% endblock %}
+
+{% block body_class %}layout-no-sidebar{% endblock %}
+{% block sidebar_region %}{% endblock %}
+{% block navbar %}
+  {% url 'tenants:select' as tenant_select_url %}
+  {% include 'includes/navbar.html' with hide_sidebar=True logo_confirm_exit=True logo_href=tenant_select_url %}
+{% endblock %}
 
 {% block breadcrumbs %}
-  <a href="{% url 'tenants:select' %}" class="hover:text-yellow-400">Workspaces</a>
+  <a href="{% url 'tenants:select' %}" class="hover:text-yellow-400">Schools</a>
   <span class="text-zinc-700">/</span>
-  <span class="text-zinc-300">Create</span>
+  <span class="text-zinc-300">Apply</span>
 {% endblock %}
 
 {% block content %}
-  <div class="space-y-6">
+  <div class="mx-auto w-full max-w-3xl space-y-6 pb-28" id="application-wizard" data-initial-step="{{ initial_step|default:1 }}">
     <div>
-      <h2 class="text-2xl font-semibold text-zinc-100">Create a new school</h2>
-      <p class="mt-2 text-sm text-zinc-400">You will become the first administrator of this workspace.</p>
+      <h2 class="text-2xl font-semibold text-zinc-100">School application</h2>
+      <p class="mt-2 text-sm text-zinc-400">
+        We verify every school manually to prevent misuse. You’ll usually hear back within
+        <span class="text-zinc-200">2 business days</span>.
+      </p>
     </div>
 
-    <form method="post" class="space-y-4" hx-boost="false">
-      {% csrf_token %}
-      {% if form.non_field_errors %}
-        <div class="rounded-md border border-red-500 px-3 py-2 text-sm text-red-400">{{ form.non_field_errors }}</div>
-      {% endif %}
-      {% for field in form %}
-        <div>
-          <label for="{{ field.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">{{ field.label }}</label>
-          {{ field }}
-          {% if field.errors %}
-            <p class="mt-1 text-xs text-red-400">{{ field.errors|striptags }}</p>
-          {% endif %}
-        </div>
-      {% endfor %}
-      <div class="flex flex-wrap gap-3 pt-2">
-        <button type="submit" class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300">
-          Create school &amp; continue
-        </button>
+    {% if has_draft %}
+      <div class="rounded-md border border-yellow-400/30 bg-yellow-400/5 px-3 py-2 text-sm text-zinc-300">
+        Continuing from your saved draft. Documents must be re-uploaded before submit.
       </div>
+    {% endif %}
+
+    {# Progress #}
+    <div class="space-y-3" aria-label="Application progress">
+      <div class="flex items-center justify-between gap-3">
+        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+          Step <span id="wizard-step-label">1</span> of 3
+        </p>
+        <p id="wizard-step-title" class="text-sm text-zinc-300">School details</p>
+      </div>
+      <div class="h-1.5 overflow-hidden rounded-full bg-zinc-900" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="1" id="wizard-progress">
+        <div id="wizard-progress-fill" class="h-full rounded-full bg-yellow-400 transition-all duration-300" style="width: 33.333%"></div>
+      </div>
+      <ol class="grid grid-cols-3 gap-2 text-left font-mono text-[10px] uppercase tracking-wider text-zinc-600">
+        <li id="wizard-marker-1" class="text-yellow-400">Details</li>
+        <li id="wizard-marker-2">Terms</li>
+        <li id="wizard-marker-3">Documents</li>
+      </ol>
+    </div>
+
+    <form
+      method="post"
+      enctype="multipart/form-data"
+      action="{% url 'tenants:create' %}"
+      class="space-y-8"
+      hx-boost="false"
+      id="application-form"
+    >
+      {% csrf_token %}
+      <input type="hidden" name="intent" id="form-intent" value="submit">
+      <input type="hidden" name="wizard_step" id="wizard-step-input" value="{{ initial_step|default:1 }}">
+
+      {% if form.non_field_errors %}
+        <div class="rounded-md border border-red-400/40 bg-red-400/10 px-3 py-2 text-sm text-red-300">
+          {{ form.non_field_errors|striptags }}
+        </div>
+      {% endif %}
+
+      <section data-wizard-step="1" class="space-y-4">
+        <h3 class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">School details</h3>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div class="sm:col-span-2">
+            <label class="mb-1 block text-sm text-zinc-400" for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+            {{ form.name }}{% if form.name.errors %}<p class="mt-1 text-xs text-red-400">{{ form.name.errors|striptags }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-zinc-400" for="{{ form.applicant_role.id_for_label }}">{{ form.applicant_role.label }}</label>
+            {{ form.applicant_role }}{% if form.applicant_role.errors %}<p class="mt-1 text-xs text-red-400">{{ form.applicant_role.errors|striptags }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-zinc-400" for="{{ form.contact_phone.id_for_label }}">{{ form.contact_phone.label }}</label>
+            {{ form.contact_phone }}{% if form.contact_phone.errors %}<p class="mt-1 text-xs text-red-400">{{ form.contact_phone.errors|striptags }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-zinc-400" for="{{ form.contact_email.id_for_label }}">{{ form.contact_email.label }}</label>
+            {{ form.contact_email }}{% if form.contact_email.errors %}<p class="mt-1 text-xs text-red-400">{{ form.contact_email.errors|striptags }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-zinc-400" for="{{ form.county.id_for_label }}">{{ form.county.label }}</label>
+            {{ form.county }}{% if form.county.errors %}<p class="mt-1 text-xs text-red-400">{{ form.county.errors|striptags }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-zinc-400" for="{{ form.paybill_number.id_for_label }}">{{ form.paybill_number.label }}</label>
+            {{ form.paybill_number }}{% if form.paybill_number.errors %}<p class="mt-1 text-xs text-red-400">{{ form.paybill_number.errors|striptags }}</p>{% endif %}
+          </div>
+          <div class="sm:col-span-2">
+            <label class="mb-1 block text-sm text-zinc-400" for="{{ form.physical_address.id_for_label }}">{{ form.physical_address.label }}</label>
+            {{ form.physical_address }}{% if form.physical_address.errors %}<p class="mt-1 text-xs text-red-400">{{ form.physical_address.errors|striptags }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-zinc-400" for="{{ form.estimated_student_count.id_for_label }}">{{ form.estimated_student_count.label }}</label>
+            {{ form.estimated_student_count }}{% if form.estimated_student_count.errors %}<p class="mt-1 text-xs text-red-400">{{ form.estimated_student_count.errors|striptags }}</p>{% endif %}
+          </div>
+        </div>
+      </section>
+
+      <section data-wizard-step="2" class="hidden space-y-4">
+        <h3 class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">How your terms work</h3>
+        <p class="text-xs text-zinc-500">Required for subscription billing. Editable later in Settings after approval.</p>
+        <div>
+          <label class="mb-1 block text-sm text-zinc-400" for="{{ form.academic_year_label.id_for_label }}">{{ form.academic_year_label.label }}</label>
+          {{ form.academic_year_label }}{% if form.academic_year_label.errors %}<p class="mt-1 text-xs text-red-400">{{ form.academic_year_label.errors|striptags }}</p>{% endif %}
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          {% for field in form %}
+            {% if field.name == "term1_start" or field.name == "term1_end" or field.name == "term2_start" or field.name == "term2_end" or field.name == "term3_start" or field.name == "term3_end" %}
+              <div>
+                <label class="mb-1 block text-sm text-zinc-400" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}{% if field.errors %}<p class="mt-1 text-xs text-red-400">{{ field.errors|striptags }}</p>{% endif %}
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </section>
+
+      <section data-wizard-step="3" class="hidden space-y-4">
+        <h3 class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Verification documents</h3>
+        <p class="text-xs text-zinc-500">PDF or image. Required: registration/licence, your ID, and an authority letter.</p>
+        <div class="space-y-3">
+          <div>
+            <label class="mb-1 block text-sm text-zinc-400" for="{{ form.doc_school_registration.id_for_label }}">{{ form.doc_school_registration.label }}</label>
+            {{ form.doc_school_registration }}{% if form.doc_school_registration.errors %}<p class="mt-1 text-xs text-red-400">{{ form.doc_school_registration.errors|striptags }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-zinc-400" for="{{ form.doc_applicant_id.id_for_label }}">{{ form.doc_applicant_id.label }}</label>
+            {{ form.doc_applicant_id }}{% if form.doc_applicant_id.errors %}<p class="mt-1 text-xs text-red-400">{{ form.doc_applicant_id.errors|striptags }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-zinc-400" for="{{ form.doc_authority_letter.id_for_label }}">{{ form.doc_authority_letter.label }}</label>
+            {{ form.doc_authority_letter }}{% if form.doc_authority_letter.errors %}<p class="mt-1 text-xs text-red-400">{{ form.doc_authority_letter.errors|striptags }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-zinc-400" for="{{ form.doc_kra_pin.id_for_label }}">{{ form.doc_kra_pin.label }}</label>
+            {{ form.doc_kra_pin }}{% if form.doc_kra_pin.errors %}<p class="mt-1 text-xs text-red-400">{{ form.doc_kra_pin.errors|striptags }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-zinc-400" for="{{ form.doc_cr12.id_for_label }}">{{ form.doc_cr12.label }}</label>
+            {{ form.doc_cr12 }}{% if form.doc_cr12.errors %}<p class="mt-1 text-xs text-red-400">{{ form.doc_cr12.errors|striptags }}</p>{% endif %}
+          </div>
+        </div>
+      </section>
     </form>
   </div>
+
+  {# Sticky form actions #}
+  <div class="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-800 bg-black/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm">
+    <div class="mx-auto w-full max-w-7xl px-4 py-3 lg:px-8">
+      <div class="mx-auto flex w-full max-w-3xl flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
+        <button
+          type="button"
+          id="wizard-cancel"
+          class="order-2 inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:order-1 sm:min-h-0 sm:py-2"
+        >
+          Cancel
+        </button>
+        <div class="order-1 flex gap-2 sm:order-2 sm:flex-wrap sm:gap-3">
+          <button
+            type="button"
+            id="wizard-back"
+            class="hidden min-h-11 flex-1 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:min-h-0 sm:flex-none sm:py-2"
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            id="wizard-next"
+            class="inline-flex min-h-11 flex-1 items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:min-h-0 sm:flex-none sm:py-2"
+          >
+            Continue
+          </button>
+          <button
+            type="submit"
+            form="application-form"
+            id="wizard-submit"
+            class="hidden min-h-11 flex-1 items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:min-h-0 sm:flex-none sm:py-2"
+          >
+            Submit application
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Cancel / draft modal #}
+  <div id="draft-backdrop" class="hidden fixed inset-0 z-50 bg-black/80" aria-hidden="true"></div>
+  <div
+    id="draft-modal"
+    class="hidden fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="draft-modal-title"
+  >
+    <div class="w-full max-w-md rounded-t-md border border-zinc-800 bg-zinc-950 p-5 sm:rounded-md">
+      <h3 id="draft-modal-title" class="text-sm font-semibold text-zinc-100">Leave application?</h3>
+      <p class="mt-2 text-sm text-zinc-400">
+        Save a draft to continue later, or discard what you’ve entered.
+        Uploaded documents are not kept in drafts.
+      </p>
+      <div class="mt-5 flex flex-col gap-2">
+        <button
+          type="button"
+          id="draft-save"
+          class="inline-flex min-h-11 items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300"
+        >
+          Save draft
+        </button>
+        <button
+          type="button"
+          id="draft-discard"
+          class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-700 px-4 py-2.5 text-sm font-semibold text-zinc-200 hover:border-red-400 hover:text-red-300"
+        >
+          Discard
+        </button>
+        <button
+          type="button"
+          id="draft-keep"
+          class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+        >
+          Keep editing
+        </button>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const root = document.getElementById('application-wizard');
+  const form = document.getElementById('application-form');
+  if (!root || !form) return;
+
+  const titles = {
+    1: 'School details',
+    2: 'Academic terms',
+    3: 'Verification documents',
+  };
+  const panels = Array.from(root.querySelectorAll('[data-wizard-step]'));
+  const stepLabel = document.getElementById('wizard-step-label');
+  const stepTitle = document.getElementById('wizard-step-title');
+  const progress = document.getElementById('wizard-progress');
+  const progressFill = document.getElementById('wizard-progress-fill');
+  const stepInput = document.getElementById('wizard-step-input');
+  const intentInput = document.getElementById('form-intent');
+  const backBtn = document.getElementById('wizard-back');
+  const nextBtn = document.getElementById('wizard-next');
+  const submitBtn = document.getElementById('wizard-submit');
+  const cancelBtn = document.getElementById('wizard-cancel');
+  const logoExit = document.getElementById('nav-logo-exit');
+  const modal = document.getElementById('draft-modal');
+  const backdrop = document.getElementById('draft-backdrop');
+  const saveBtn = document.getElementById('draft-save');
+  const discardBtn = document.getElementById('draft-discard');
+  const keepBtn = document.getElementById('draft-keep');
+  const cancelUrl = '{% url "tenants:select" %}';
+
+  let step = parseInt(root.getAttribute('data-initial-step') || '1', 10);
+  if (!(step >= 1 && step <= 3)) step = 1;
+
+  form.setAttribute('novalidate', 'novalidate');
+
+  function panelFor(n) {
+    return panels.find(function (el) {
+      return el.getAttribute('data-wizard-step') === String(n);
+    });
+  }
+
+  function setStep(n) {
+    step = n;
+    panels.forEach(function (panel) {
+      const active = panel.getAttribute('data-wizard-step') === String(n);
+      panel.classList.toggle('hidden', !active);
+    });
+    if (stepLabel) stepLabel.textContent = String(n);
+    if (stepTitle) stepTitle.textContent = titles[n] || '';
+    if (stepInput) stepInput.value = String(n);
+    if (progress) progress.setAttribute('aria-valuenow', String(n));
+    if (progressFill) progressFill.style.width = (n / 3 * 100).toFixed(3) + '%';
+    for (let i = 1; i <= 3; i += 1) {
+      const marker = document.getElementById('wizard-marker-' + i);
+      if (!marker) continue;
+      marker.classList.toggle('text-yellow-400', i <= n);
+      marker.classList.toggle('text-zinc-600', i > n);
+    }
+    if (backBtn) {
+      backBtn.classList.toggle('hidden', n === 1);
+      backBtn.classList.toggle('inline-flex', n !== 1);
+    }
+    if (nextBtn) {
+      nextBtn.classList.toggle('hidden', n === 3);
+      nextBtn.classList.toggle('inline-flex', n !== 3);
+    }
+    if (submitBtn) {
+      submitBtn.classList.toggle('hidden', n !== 3);
+      submitBtn.classList.toggle('inline-flex', n === 3);
+    }
+  }
+
+  function validateStep(n) {
+    const panel = panelFor(n);
+    if (!panel) return true;
+    const fields = panel.querySelectorAll('input, select, textarea');
+    for (let i = 0; i < fields.length; i += 1) {
+      const field = fields[i];
+      if (typeof field.checkValidity === 'function' && !field.checkValidity()) {
+        field.reportValidity();
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function isDirty() {
+    const fields = form.querySelectorAll('input:not([type="hidden"]):not([type="file"]), select, textarea');
+    for (let i = 0; i < fields.length; i += 1) {
+      const field = fields[i];
+      if ((field.value || '').trim()) return true;
+    }
+    const files = form.querySelectorAll('input[type="file"]');
+    for (let i = 0; i < files.length; i += 1) {
+      if (files[i].files && files[i].files.length) return true;
+    }
+    return {% if has_draft %}true{% else %}false{% endif %};
+  }
+
+  function openModal() {
+    if (backdrop) backdrop.classList.remove('hidden');
+    if (modal) modal.classList.remove('hidden');
+    if (window.KoraOverlay) window.KoraOverlay.lock();
+  }
+
+  function closeModal() {
+    if (backdrop) backdrop.classList.add('hidden');
+    if (modal) modal.classList.add('hidden');
+    if (window.KoraOverlay) window.KoraOverlay.unlock();
+  }
+
+  function requestExit(event) {
+    if (event) event.preventDefault();
+    if (!isDirty()) {
+      window.location.href = cancelUrl;
+      return;
+    }
+    openModal();
+  }
+
+  if (nextBtn) {
+    nextBtn.addEventListener('click', function () {
+      if (!validateStep(step)) return;
+      setStep(Math.min(3, step + 1));
+    });
+  }
+  if (backBtn) {
+    backBtn.addEventListener('click', function () {
+      setStep(Math.max(1, step - 1));
+    });
+  }
+  if (submitBtn) {
+    submitBtn.addEventListener('click', function () {
+      if (intentInput) intentInput.value = 'submit';
+    });
+  }
+  form.addEventListener('submit', function (event) {
+    const intent = intentInput ? intentInput.value : 'submit';
+    if (intent === 'save_draft' || intent === 'discard') return;
+    for (let s = 1; s <= 3; s += 1) {
+      if (!validateStep(s)) {
+        event.preventDefault();
+        setStep(s);
+        return;
+      }
+    }
+  });
+  if (cancelBtn) cancelBtn.addEventListener('click', requestExit);
+  if (logoExit) logoExit.addEventListener('click', requestExit);
+  if (keepBtn) keepBtn.addEventListener('click', closeModal);
+  if (backdrop) backdrop.addEventListener('click', closeModal);
+  if (saveBtn) {
+    saveBtn.addEventListener('click', function () {
+      if (intentInput) intentInput.value = 'save_draft';
+      if (stepInput) stepInput.value = String(step);
+      form.submit();
+    });
+  }
+  if (discardBtn) {
+    discardBtn.addEventListener('click', function () {
+      if (intentInput) intentInput.value = 'discard';
+      form.submit();
+    });
+  }
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+      closeModal();
+    }
+  });
+
+  setStep(step);
+})();
+</script>
 {% endblock %}

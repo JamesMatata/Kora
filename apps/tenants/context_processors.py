@@ -83,4 +83,10 @@ def layout(request):
         'pending_invitation_count': pending_invitation_count,
         'unread_notification_count': unread_notification_count,
         'inbox_badge_count': pending_invitation_count + unread_notification_count,
+        'school_verification_pending': bool(
+            getattr(request, 'school_verification_pending', False)
+        ),
+        'school_billing_locked': bool(
+            getattr(request, 'school_billing_locked', False)
+        ),
     }

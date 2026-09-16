@@ -5,7 +5,7 @@
 >
   {% load avatars %}
   {# Fixed-width inner panel: outer shell clips it while width animates (no edge flash). #}
-  <div class="sidebar-inner relative flex h-full w-72 flex-col bg-zinc-950">
+  <div class="sidebar-inner relative flex h-full w-full flex-col bg-zinc-950 lg:w-72">
     <nav class="flex-1 overflow-y-auto overflow-x-hidden py-2 pb-44">
       <ul>
         {# 1. Home #}
@@ -241,7 +241,7 @@
             {% endif %}
           </div>
 
-          <div class="avatar-flyout z-[60] w-52 rounded-md border border-zinc-800 bg-black" role="menu">
+          <div class="avatar-flyout z-[60] w-52 rounded-md border border-zinc-800 bg-black shadow-none" role="menu">
             <div class="border-b border-zinc-800 px-3 py-2">
               <p class="truncate text-sm font-medium text-zinc-100">{{ user.get_full_name|default:user.get_username }}</p>
               {% if role_label %}
@@ -295,6 +295,13 @@
                 class="w-full rounded-md border px-2 py-1.5 font-mono text-[10px] uppercase tracking-wider {% if role_mode == 'teacher' %}border-yellow-400 bg-yellow-400 text-black{% else %}border-zinc-800 text-zinc-400 hover:border-yellow-400 hover:text-yellow-400{% endif %}"
               >Teacher</button>
             </form>
+          </div>
+        </div>
+        {% elif role_label %}
+        <div class="role-switcher border-t border-zinc-800 px-4 py-2">
+          <p class="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Role</p>
+          <div class="rounded-md border border-yellow-400 bg-yellow-400 px-2 py-1.5 text-center font-mono text-[10px] uppercase tracking-wider text-black">
+            {{ role_label }}
           </div>
         </div>
         {% endif %}

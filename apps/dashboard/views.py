@@ -1,6 +1,6 @@
 import csv
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from django.contrib import messages
@@ -19,7 +19,10 @@ from django.views.generic import TemplateView
 
 from academics.models import AcademicYear, AttendanceRecord, ClassStream, GradeLevel, Student
 from communications.models import ConversationSession, MessageLog, ParentContact
-from communications.services.twilio_service import send_whatsapp_message
+from communications.services.twilio_service import (
+    parent_whatsapp_destination,
+    send_whatsapp_message,
+)
 from dashboard.forms import (
     ClassTeacherAssignForm,
     GradeLevelForm,
@@ -51,7 +54,7 @@ from tenants.decorators import (
     school_finance_required,
     school_staff_required,
 )
-from tenants.forms import SchoolSettingsForm
+from tenants.forms import SchoolSettingsForm, SchoolTermCalendarForm
 from tenants.models import SchoolMembership, StaffInvitation
 
 User = get_user_model()
@@ -240,7 +243,10 @@ class DashboardOverviewView(LoginRequiredMixin, TemplateView):
 
         active_escalations_count = ConversationSession.objects.filter(
             school=school,
-            status=ConversationSession.Status.ESCALATED_PENDING,
+            status__in=[
+                ConversationSession.Status.ESCALATED_PENDING,
+                ConversationSession.Status.STAFF_ACTIVE,
+            ],
         ).count()
         active_promises_count = PaymentPromise.objects.filter(
             school=school,
@@ -253,40 +259,72 @@ class DashboardOverviewView(LoginRequiredMixin, TemplateView):
             .order_by('-created_at')[:10]
         )
 
-        escalation_sessions = list(
-            ConversationSession.objects.filter(
+        # Build from [ESCALATION] audit logs so re-seeds / menu reclaim still
+        # show that a handoff was recorded. Prefer open sessions first.
+        esc_cutoff = timezone.now() - timedelta(days=7)
+        escalation_logs = (
+            MessageLog.objects.filter(
                 school=school,
-                status=ConversationSession.Status.ESCALATED_PENDING,
+                body__startswith='[ESCALATION]',
+                created_at__gte=esc_cutoff,
             )
-            .select_related('parent_contact', 'active_student', 'assigned_staff')
-            .order_by('-last_message_at')[:15]
+            .select_related(
+                'session__parent_contact',
+                'session__active_student',
+                'session__assigned_staff',
+            )
+            .order_by('-created_at')[:40]
         )
-        urgent_attention = []
-        for esc in escalation_sessions:
-            reason_log = (
-                MessageLog.objects.filter(
-                    school=school,
-                    session=esc,
-                    body__startswith='[ESCALATION]',
-                )
-                .order_by('-created_at')
-                .first()
-            )
-            reason = ''
-            flagged_at = esc.last_message_at
-            if reason_log is not None:
-                reason = reason_log.body.replace('[ESCALATION]', '', 1).strip()
-                flagged_at = reason_log.created_at
-            urgent_attention.append(
-                {
-                    'session': esc,
-                    'parent_phone': esc.parent_contact.phone_number,
-                    'parent_name': esc.parent_contact.parent_name,
-                    'student': esc.active_student,
-                    'reason': reason or 'Flagged for human review',
-                    'flagged_at': flagged_at,
-                }
-            )
+        status_rank = {
+            ConversationSession.Status.ESCALATED_PENDING: 0,
+            ConversationSession.Status.STAFF_ACTIVE: 1,
+            ConversationSession.Status.BOT_ACTIVE: 2,
+            ConversationSession.Status.CLOSED: 3,
+        }
+        status_label = {
+            ConversationSession.Status.ESCALATED_PENDING: 'Needs you',
+            ConversationSession.Status.STAFF_ACTIVE: 'Claimed',
+            ConversationSession.Status.BOT_ACTIVE: 'Back with bot',
+            ConversationSession.Status.CLOSED: 'Closed',
+        }
+        by_session = {}
+        for log in escalation_logs:
+            sess = log.session
+            if sess is None:
+                continue
+            reason = log.body.replace('[ESCALATION]', '', 1).strip()
+            entry = {
+                'session': sess,
+                'parent_phone': sess.parent_contact.phone_number,
+                'parent_name': sess.parent_contact.parent_name,
+                'student': sess.active_student,
+                'reason': reason or 'Flagged for human review',
+                'flagged_at': log.created_at,
+                'status': sess.status,
+                'status_label': status_label.get(sess.status, sess.status),
+                'is_actionable': sess.status
+                in (
+                    ConversationSession.Status.ESCALATED_PENDING,
+                    ConversationSession.Status.STAFF_ACTIVE,
+                ),
+            }
+            prev = by_session.get(sess.pk)
+            if prev is None:
+                by_session[sess.pk] = entry
+                continue
+            # Keep the newest log; prefer open status if same session somehow differs
+            if status_rank.get(sess.status, 9) < status_rank.get(prev['status'], 9):
+                by_session[sess.pk] = entry
+            elif entry['flagged_at'] >= prev['flagged_at']:
+                by_session[sess.pk] = entry
+
+        urgent_attention = sorted(
+            by_session.values(),
+            key=lambda item: (
+                0 if item['is_actionable'] else 1,
+                -(item['flagged_at'].timestamp() if item['flagged_at'] else 0),
+            ),
+        )[:15]
 
         context.update(
             {
@@ -306,6 +344,31 @@ class DashboardOverviewView(LoginRequiredMixin, TemplateView):
                 'recent_transactions': recent_transactions,
                 'urgent_attention': urgent_attention,
                 'current_academic_year': year,
+            }
+        )
+
+        # Hub: subscription status + get-started checklist for admins/bursars.
+        from dashboard.services.setup_checklist import build_setup_checklist
+
+        membership = getattr(request, 'membership', None)
+        can_setup = bool(
+            getattr(request, 'acting_as_admin', False)
+            or getattr(request, 'acting_as_bursar', False)
+        )
+        setup = build_setup_checklist(school) if can_setup else None
+        show_setup = bool(
+            setup
+            and not setup['complete']
+            and membership is not None
+            and membership.onboarding_dismissed_at is None
+        )
+        subscription = getattr(school, 'subscription', None)
+        context.update(
+            {
+                'hub_setup': setup,
+                'show_get_started': show_setup,
+                'hub_subscription': subscription,
+                'hub_can_manage_billing': can_setup,
             }
         )
         return context
@@ -486,7 +549,10 @@ def _ledger_row_context(school, invoices):
                 reminders_paused = False
         promise = promises_by_invoice.get(invoice.pk)
         promise_overdue = bool(
-            promise is not None and promise.promised_date < today
+            promise is not None
+            and promise.promised_date is not None
+            and promise.promised_date < today
+            and not promise.date_uncertain
         )
         rows.append(
             {
@@ -1056,7 +1122,7 @@ class InvoiceDiscountView(LoginRequiredMixin, View):
             )
 
         try:
-            invoice.apply_discount(amount, note=note, waive_remaining=waive)
+            applied = invoice.apply_discount(amount, note=note, waive_remaining=waive)
         except ValidationError as exc:
             messages.error(request, str(exc))
             return redirect(
@@ -1064,6 +1130,7 @@ class InvoiceDiscountView(LoginRequiredMixin, View):
                 admission_number=student.admission_number,
             )
 
+        from finance.services.receipts import notify_parent_discount_applied
         from tenants.audit import log_audit_event
         from tenants.models import AuditEvent
 
@@ -1073,21 +1140,48 @@ class InvoiceDiscountView(LoginRequiredMixin, View):
             action='invoice_discount' if not waive else 'invoice_waiver',
             summary=(
                 f'{"Waiver" if waive else "Discount"} on {student.admission_number} '
-                f'({invoice.term}): {invoice.discount_amount}'
+                f'({invoice.term}): +{applied} (total discount {invoice.discount_amount})'
             ),
             actor=request.user,
             object_type='FeeInvoice',
             object_id=str(invoice.pk),
             metadata={
+                'applied_amount': str(applied),
                 'discount_amount': str(invoice.discount_amount),
                 'note': invoice.discount_note,
                 'waive': waive,
             },
         )
-        messages.success(
-            request,
-            'Waiver applied.' if waive else 'Discount / bursary applied.',
+
+        notified, notify_detail = notify_parent_discount_applied(
+            invoice=invoice,
+            applied_amount=applied,
+            note=note or invoice.discount_note,
+            waive=waive,
         )
+        if notified:
+            messages.success(
+                request,
+                (
+                    'Waiver applied and parent notified on WhatsApp.'
+                    if waive
+                    else 'Discount / bursary applied and parent notified on WhatsApp.'
+                ),
+            )
+        else:
+            messages.success(
+                request,
+                (
+                    'Waiver applied.'
+                    if waive
+                    else 'Discount / bursary applied.'
+                )
+                + (
+                    f' WhatsApp not sent ({notify_detail}).'
+                    if notify_detail
+                    else ' WhatsApp not sent.'
+                ),
+            )
         return redirect(
             'finance:student_fee_statement',
             admission_number=student.admission_number,
@@ -1677,9 +1771,10 @@ class ChatSendView(LoginRequiredMixin, View):
 
         body = (request.POST.get('body') or '').strip()
         if body:
+            to_phone = parent_whatsapp_destination(session.parent_contact)
             ok, detail = send_whatsapp_message(
                 school,
-                session.parent_contact.phone_number,
+                to_phone,
                 body,
                 session=session,
                 sender_type=MessageLog.Sender.STAFF,
@@ -1775,8 +1870,9 @@ class SchoolSettingsView(LoginRequiredMixin, View):
 
     template_name = 'dashboard/school_settings.html'
 
-    def _context(self, request, school, *, form=None):
+    def _context(self, request, school, *, form=None, term_form=None):
         from finance.services.reminder_service import FeeReminderService
+        from tenants.models import SchoolTermPeriod
         from tenants.ops import latest_ops_job
 
         years = list(
@@ -1784,6 +1880,11 @@ class SchoolSettingsView(LoginRequiredMixin, View):
         )
         reminder_preview = FeeReminderService().preview_overdue_reminders(school)
         last_reminders = latest_ops_job('fee_reminders', school=school)
+
+        from communications.services.whatsapp_delivery import (
+            format_messaging_hours_label,
+            format_quiet_hours_label,
+        )
 
         def _ops_meta(run, *, stale_hours=36):
             if run is None:
@@ -1795,12 +1896,37 @@ class SchoolSettingsView(LoginRequiredMixin, View):
                 'is_failed': run.status == 'FAILED',
             }
 
+        if term_form is None:
+            periods = list(
+                SchoolTermPeriod.objects.filter(school=school).order_by(
+                    '-academic_year_label', 'term_number'
+                )
+            )
+            initial = {}
+            if periods:
+                # Prefer the most recent academic year group.
+                year_label = periods[0].academic_year_label
+                year_periods = [p for p in periods if p.academic_year_label == year_label]
+                initial['academic_year_label'] = year_label
+                for p in year_periods:
+                    initial[f'term{p.term_number}_start'] = p.start_date
+                    initial[f'term{p.term_number}_end'] = p.end_date
+            term_form = SchoolTermCalendarForm(initial=initial)
+
         return {
             'page_title': 'School settings',
             'form': form or SchoolSettingsForm(school=school),
+            'term_form': term_form,
             'academic_years': years,
             'reminder_preview': reminder_preview,
             'ops_reminders': _ops_meta(last_reminders),
+            'quiet_hours_label': format_quiet_hours_label(school=school),
+            'messaging_hours_label': format_messaging_hours_label(school=school),
+            'mpesa_credential_status': {
+                'consumer_key': bool((school.mpesa_consumer_key or '').strip()),
+                'consumer_secret': bool((school.mpesa_consumer_secret or '').strip()),
+                'passkey': bool((school.mpesa_passkey or '').strip()),
+            },
         }
 
     def get(self, request):
@@ -1819,6 +1945,33 @@ class SchoolSettingsView(LoginRequiredMixin, View):
             return redirect('tenants:select')
 
         action = (request.POST.get('action') or 'settings').strip()
+
+        if action == 'save_terms':
+            from tenants.models import SchoolTermPeriod
+
+            term_form = SchoolTermCalendarForm(request.POST)
+            if not term_form.is_valid():
+                messages.error(request, 'Could not save term calendar. Check the dates.')
+                return render(
+                    request,
+                    self.template_name,
+                    self._context(request, school, term_form=term_form),
+                    status=400,
+                )
+            data = term_form.cleaned_data
+            year = data['academic_year_label'].strip()
+            for number in (1, 2, 3):
+                SchoolTermPeriod.objects.update_or_create(
+                    school=school,
+                    academic_year_label=year,
+                    term_number=number,
+                    defaults={
+                        'start_date': data[f'term{number}_start'],
+                        'end_date': data[f'term{number}_end'],
+                    },
+                )
+            messages.success(request, f'Term calendar for {year} saved.')
+            return redirect('dashboard:school_settings')
 
         if action == 'add_year':
             name = (request.POST.get('year_name') or '').strip()
@@ -1878,7 +2031,7 @@ class SchoolSettingsView(LoginRequiredMixin, View):
 
         if action == 'run_fee_reminders':
             from communications.services.whatsapp_delivery import (
-                in_quiet_period,
+                format_messaging_hours_label,
                 next_delivery_at,
             )
             from finance.services.reminder_service import FeeReminderService
@@ -1887,13 +2040,14 @@ class SchoolSettingsView(LoginRequiredMixin, View):
             preview = service.preview_overdue_reminders(school)
 
             if preview['in_quiet_hours']:
-                when = next_delivery_at()
+                when = next_delivery_at(school=school)
                 messages.error(
                     request,
                     (
-                        'Reminders can only be sent during school messaging hours '
-                        '(8:00 am – 8:00 pm Nairobi time). '
-                        f'Please try again after {when.strftime("%d %b %Y %H:%M")}.'
+                        'Reminders can only be sent during your school messaging hours '
+                        f'({format_messaging_hours_label(school=school)} Nairobi time). '
+                        f'Please try again after {when.strftime("%d %b %Y %H:%M")}, '
+                        'or adjust quiet hours below.'
                     ),
                 )
                 return redirect('dashboard:school_settings')
@@ -2051,77 +2205,46 @@ class AuditLogView(LoginRequiredMixin, View):
 
 @method_decorator(school_admin_required, name='dispatch')
 class OnboardingChecklistView(LoginRequiredMixin, View):
-    """Simple setup checklist for a new school tenant."""
+    """Setup checklist for a new school tenant."""
 
     template_name = 'dashboard/onboarding.html'
 
     def get(self, request):
+        from dashboard.services.setup_checklist import build_setup_checklist
+
         school = _ensure_school(request)
         if school is None:
             return redirect('tenants:select')
 
-        has_year = AcademicYear.objects.filter(school=school).exists()
-        has_stream = ClassStream.objects.filter(school=school).exists()
-        has_students = Student.objects.filter(school=school, is_active=True).exists()
-        has_paybill = bool((school.paybill_number or '').strip())
-        has_mpesa = bool(
-            school.mpesa_consumer_key
-            or school.mpesa_consumer_secret
-            or school.mpesa_passkey
-        )
-        has_invoices = FeeInvoice.objects.filter(school=school).exists()
-        has_twilio = bool((school.twilio_phone_number or '').strip())
-        steps = [
-            {
-                'title': 'Add academic year',
-                'done': has_year,
-                'url': reverse('dashboard:school_settings'),
-            },
-            {
-                'title': 'Create classes / streams',
-                'done': has_stream,
-                'url': reverse('dashboard:classes'),
-            },
-            {
-                'title': 'Import or add students',
-                'done': has_students,
-                'url': reverse('dashboard:classes'),
-            },
-            {
-                'title': 'Save Paybill number',
-                'done': has_paybill,
-                'url': reverse('dashboard:school_settings'),
-            },
-            {
-                'title': 'Save Daraja API keys',
-                'done': has_mpesa,
-                'url': reverse('dashboard:school_settings'),
-            },
-            {
-                'title': 'Generate term fee invoices',
-                'done': has_invoices,
-                'url': reverse('finance:term_fee_plans'),
-            },
-            {
-                'title': 'Optional: school WhatsApp sender',
-                'done': has_twilio,
-                'url': reverse('dashboard:school_settings'),
-                'optional': True,
-            },
-        ]
-        required = [s for s in steps if not s.get('optional')]
-        done_count = sum(1 for s in required if s['done'])
+        setup = build_setup_checklist(school)
         return render(
             request,
             self.template_name,
             {
                 'page_title': 'Get started',
-                'steps': steps,
-                'done_count': done_count,
-                'total_required': len(required),
-                'complete': done_count >= len(required),
+                'steps': setup['steps'],
+                'done_count': setup['done_count'],
+                'total_required': setup['total_required'],
+                'complete': setup['complete'],
             },
         )
+
+
+@method_decorator(school_admin_required, name='dispatch')
+class OnboardingDismissView(LoginRequiredMixin, View):
+    """Dismiss the Get started panel on Overview (can reopen from Settings link)."""
+
+    def post(self, request):
+        membership = getattr(request, 'membership', None)
+        if membership is None:
+            return redirect('tenants:select')
+        membership.onboarding_dismissed_at = timezone.now()
+        membership.save(update_fields=['onboarding_dismissed_at'])
+        messages.success(
+            request,
+            'Get started hidden. You can open it anytime from Settings → Setup checklist.',
+        )
+        return redirect('dashboard:overview')
 
 
 @method_decorator(school_admin_required, name='dispatch')

@@ -18,9 +18,9 @@
         <p class="mt-2 text-sm text-zinc-400">Invitations and notifications for your account.</p>
       </div>
       {% if notifications %}
-        <form method="post" action="{% url 'tenants:notifications_read_all' %}" hx-boost="false">
+        <form method="post" action="{% url 'tenants:notifications_read_all' %}" hx-boost="false" class="w-full sm:w-auto">
           {% csrf_token %}
-          <button type="submit" class="rounded-md border border-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400">
+          <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-800 px-3 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:min-h-0 sm:w-auto sm:py-2 sm:text-xs">
             Mark all read
           </button>
         </form>
@@ -33,7 +33,7 @@
         <ul class="divide-y divide-zinc-800 overflow-hidden rounded-md border border-zinc-800 bg-black">
           {% for invite in invitations %}
             <li class="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
+              <div class="min-w-0">
                 <p class="text-sm font-semibold text-zinc-100">{{ invite.school.name }}</p>
                 <p class="mt-1 text-xs text-zinc-500">
                   {% if invite.role_admin and invite.role_teacher %}Admin &amp; Teacher
@@ -45,16 +45,16 @@
                   · expires {{ invite.expires_at|date:"M j, Y" }}
                 </p>
               </div>
-              <div class="flex gap-2">
-                <form method="post" action="{% url 'tenants:invitation_respond' invite.pk 'accept' %}" hx-boost="false">
+              <div class="grid grid-cols-2 gap-2 sm:flex">
+                <form method="post" action="{% url 'tenants:invitation_respond' invite.pk 'accept' %}" hx-boost="false" class="contents sm:block">
                   {% csrf_token %}
-                  <button type="submit" class="rounded-md border border-yellow-400 bg-yellow-400 px-3 py-1.5 text-xs font-semibold text-black hover:bg-yellow-300">
+                  <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-3 py-2 text-sm font-semibold text-black hover:bg-yellow-300 sm:min-h-0 sm:w-auto sm:py-1.5 sm:text-xs">
                     Accept
                   </button>
                 </form>
-                <form method="post" action="{% url 'tenants:invitation_respond' invite.pk 'reject' %}" hx-boost="false">
+                <form method="post" action="{% url 'tenants:invitation_respond' invite.pk 'reject' %}" hx-boost="false" class="contents sm:block">
                   {% csrf_token %}
-                  <button type="submit" class="rounded-md border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:border-red-500 hover:text-red-400">
+                  <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-700 px-3 py-2 text-sm font-semibold text-zinc-300 hover:border-red-500 hover:text-red-400 sm:min-h-0 sm:w-auto sm:py-1.5 sm:text-xs">
                     Decline
                   </button>
                 </form>
@@ -75,8 +75,8 @@
         <ul class="divide-y divide-zinc-800 overflow-hidden rounded-md border border-zinc-800 bg-black">
           {% for note in notifications %}
             <li class="px-4 py-3 {% if not note.is_read %}bg-zinc-950{% endif %}">
-              <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div class="min-w-0">
                   <p class="text-sm font-medium text-zinc-100">{{ note.title }}</p>
                   {% if note.body %}
                     <p class="mt-1 text-sm text-zinc-400">{{ note.body }}</p>
@@ -87,9 +87,9 @@
                   </p>
                 </div>
                 {% if not note.is_read or note.link %}
-                  <form method="post" action="{% url 'tenants:notification_read' note.pk %}" hx-boost="false">
+                  <form method="post" action="{% url 'tenants:notification_read' note.pk %}" hx-boost="false" class="w-full sm:w-auto">
                     {% csrf_token %}
-                    <button type="submit" class="text-xs text-yellow-400 hover:text-yellow-300">
+                    <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-800 px-3 py-2 text-sm font-semibold text-yellow-400 hover:border-yellow-400 sm:min-h-0 sm:w-auto sm:border-0 sm:px-0 sm:py-0 sm:text-xs">
                       {% if note.link %}Open{% else %}Mark read{% endif %}
                     </button>
                   </form>

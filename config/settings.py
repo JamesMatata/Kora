@@ -136,6 +136,9 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = '/overview/'
 LOGOUT_REDIRECT_URL = '/'
@@ -178,3 +181,21 @@ FEE_OVERPAYMENT_ALLOWANCE = env('FEE_OVERPAYMENT_ALLOWANCE', default='0')
 # Google Gemini (parent WhatsApp agent)
 GEMINI_API_KEY = env('GEMINI_API_KEY', default='')
 GEMINI_MODEL = env('GEMINI_MODEL', default='gemini-2.5-flash')
+
+# Dedicated Fernet key / passphrase for encrypted tenant secrets (M-Pesa, webhook).
+# When unset, values are encrypted with a key derived from SECRET_KEY (legacy).
+# Set KORA_CREDENTIALS_KEY in production, then run: manage.py reencrypt_credentials
+KORA_CREDENTIALS_KEY = env('KORA_CREDENTIALS_KEY', default='')
+
+# Optional comma-separated IPs/CIDRs allowed to hit Daraja callbacks (empty = allow all).
+DARAJA_CALLBACK_IP_ALLOWLIST = env.list('DARAJA_CALLBACK_IP_ALLOWLIST', default=[])
+
+# Production HTTPS / cookie hardening (skipped while DEBUG=True).
+if not DEBUG:
+    SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=True)
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = env.int('SECURE_HSTS_SECONDS', default=31536000)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

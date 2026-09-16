@@ -15,7 +15,12 @@
     <div>
       <h2 class="text-2xl font-semibold text-zinc-100">School settings</h2>
       <p class="mt-2 max-w-2xl text-sm text-zinc-400">
-        Update school contacts, M-Pesa Paybill, WhatsApp, and the academic year.
+        Update school contacts, M-Pesa Paybill, WhatsApp, term dates, and the academic year.
+      </p>
+      <p class="mt-2 text-sm">
+        <a href="{% url 'tenants:billing' %}" class="text-yellow-400 hover:text-yellow-300">View Kora subscription billing</a>
+        <span class="text-zinc-600"> · </span>
+        <a href="{% url 'dashboard:onboarding' %}" class="text-yellow-400 hover:text-yellow-300">Setup checklist</a>
       </p>
     </div>
 
@@ -67,26 +72,146 @@
           {% if form.twilio_phone_number.help_text %}<p class="mt-1 text-xs text-zinc-500">{{ form.twilio_phone_number.help_text }}</p>{% endif %}
         </div>
         <div>
-          <label for="{{ form.mpesa_consumer_key.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">M-Pesa consumer key</label>
-          {{ form.mpesa_consumer_key }}
+          <label for="{{ form.reminder_quiet_hour_start.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Quiet hours start</label>
+          {{ form.reminder_quiet_hour_start }}
+          {% if form.reminder_quiet_hour_start.help_text %}<p class="mt-1 text-xs text-zinc-500">{{ form.reminder_quiet_hour_start.help_text }}</p>{% endif %}
+          {% if form.reminder_quiet_hour_start.errors %}<p class="mt-1 text-xs text-red-400">{{ form.reminder_quiet_hour_start.errors|striptags }}</p>{% endif %}
+        </div>
+        <div>
+          <label for="{{ form.reminder_quiet_hour_end.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Quiet hours end</label>
+          {{ form.reminder_quiet_hour_end }}
+          {% if form.reminder_quiet_hour_end.help_text %}<p class="mt-1 text-xs text-zinc-500">{{ form.reminder_quiet_hour_end.help_text }}</p>{% endif %}
+          {% if form.reminder_quiet_hour_end.errors %}<p class="mt-1 text-xs text-red-400">{{ form.reminder_quiet_hour_end.errors|striptags }}</p>{% endif %}
+        </div>
+        <div>
+          <div class="mb-1 flex items-center justify-between gap-2">
+            <label for="{{ form.mpesa_consumer_key.id_for_label }}" class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">M-Pesa consumer key</label>
+            {% if mpesa_credential_status.consumer_key %}
+              <span class="rounded-md border border-yellow-400/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-yellow-400">Set</span>
+            {% else %}
+              <span class="rounded-md border border-zinc-800 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-500">Not set</span>
+            {% endif %}
+          </div>
+          <div class="relative">
+            {{ form.mpesa_consumer_key }}
+            <button
+              type="button"
+              class="secret-toggle absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center text-zinc-500 hover:text-yellow-400"
+              data-target="{{ form.mpesa_consumer_key.id_for_label }}"
+              aria-label="Show consumer key"
+              aria-pressed="false"
+            >
+              <svg class="icon-show h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
+              </svg>
+              <svg class="icon-hide hidden h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M3 3l18 18M10.5 10.7a3 3 0 0 0 4.2 4.2M9.9 5.6A10.5 10.5 0 0 1 12 5c6.5 0 10 7 10 7a18.4 18.4 0 0 1-4.2 4.7M6.1 6.3A18.5 18.5 0 0 0 2 12s3.5 7 10 7c1.1 0 2.1-.2 3.1-.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
           <p class="mt-1 text-xs text-zinc-500">From your Safaricom M-Pesa portal. Leave blank to keep the current value.</p>
         </div>
         <div>
-          <label for="{{ form.mpesa_consumer_secret.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">M-Pesa consumer secret</label>
-          {{ form.mpesa_consumer_secret }}
+          <div class="mb-1 flex items-center justify-between gap-2">
+            <label for="{{ form.mpesa_consumer_secret.id_for_label }}" class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">M-Pesa consumer secret</label>
+            {% if mpesa_credential_status.consumer_secret %}
+              <span class="rounded-md border border-yellow-400/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-yellow-400">Set</span>
+            {% else %}
+              <span class="rounded-md border border-zinc-800 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-500">Not set</span>
+            {% endif %}
+          </div>
+          <div class="relative">
+            {{ form.mpesa_consumer_secret }}
+            <button
+              type="button"
+              class="secret-toggle absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center text-zinc-500 hover:text-yellow-400"
+              data-target="{{ form.mpesa_consumer_secret.id_for_label }}"
+              aria-label="Show consumer secret"
+              aria-pressed="false"
+            >
+              <svg class="icon-show h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
+              </svg>
+              <svg class="icon-hide hidden h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M3 3l18 18M10.5 10.7a3 3 0 0 0 4.2 4.2M9.9 5.6A10.5 10.5 0 0 1 12 5c6.5 0 10 7 10 7a18.4 18.4 0 0 1-4.2 4.7M6.1 6.3A18.5 18.5 0 0 0 2 12s3.5 7 10 7c1.1 0 2.1-.2 3.1-.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+          <p class="mt-1 text-xs text-zinc-500">Leave blank to keep existing.</p>
         </div>
         <div class="sm:col-span-2">
-          <label for="{{ form.mpesa_passkey.id_for_label }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">M-Pesa passkey</label>
-          {{ form.mpesa_passkey }}
+          <div class="mb-1 flex items-center justify-between gap-2">
+            <label for="{{ form.mpesa_passkey.id_for_label }}" class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">M-Pesa passkey</label>
+            {% if mpesa_credential_status.passkey %}
+              <span class="rounded-md border border-yellow-400/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-yellow-400">Set</span>
+            {% else %}
+              <span class="rounded-md border border-zinc-800 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-500">Not set</span>
+            {% endif %}
+          </div>
+          <div class="relative">
+            {{ form.mpesa_passkey }}
+            <button
+              type="button"
+              class="secret-toggle absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center text-zinc-500 hover:text-yellow-400"
+              data-target="{{ form.mpesa_passkey.id_for_label }}"
+              aria-label="Show passkey"
+              aria-pressed="false"
+            >
+              <svg class="icon-show h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
+              </svg>
+              <svg class="icon-hide hidden h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M3 3l18 18M10.5 10.7a3 3 0 0 0 4.2 4.2M9.9 5.6A10.5 10.5 0 0 1 12 5c6.5 0 10 7 10 7a18.4 18.4 0 0 1-4.2 4.7M6.1 6.3A18.5 18.5 0 0 0 2 12s3.5 7 10 7c1.1 0 2.1-.2 3.1-.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+          <p class="mt-1 text-xs text-zinc-500">Leave blank to keep existing.</p>
         </div>
       </div>
 
       <div class="flex flex-wrap gap-3 pt-2">
-        <button type="submit" class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300">
+        <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:min-h-0 sm:w-auto sm:py-2">
           Save settings
         </button>
       </div>
     </form>
+
+    <div class="space-y-4 border-t border-zinc-800 pt-6">
+      <p class="text-sm font-medium text-zinc-200">Term calendar (Kora billing)</p>
+      <p class="max-w-2xl text-sm text-zinc-400">
+        Used to schedule subscription invoices and mid-term proration. Changing dates does not rewrite past invoices.
+      </p>
+      <form method="post" action="{% url 'dashboard:school_settings' %}" class="space-y-4" hx-boost="false">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save_terms">
+        {% if term_form.non_field_errors %}
+          <div class="rounded-md border border-red-400/40 bg-red-400/10 px-3 py-2 text-sm text-red-300">
+            {{ term_form.non_field_errors|striptags }}
+          </div>
+        {% endif %}
+        <div>
+          <label class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500" for="{{ term_form.academic_year_label.id_for_label }}">Academic year</label>
+          {{ term_form.academic_year_label }}
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          {% for field in term_form %}
+            {% if field.name != 'academic_year_label' %}
+              <div>
+                <label class="mb-1 block text-sm text-zinc-400" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}<p class="mt-1 text-xs text-red-400">{{ field.errors|striptags }}</p>{% endif %}
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+        <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:min-h-0 sm:w-auto sm:py-2">
+          Save term calendar
+        </button>
+      </form>
+    </div>
 
     <div class="space-y-3">
       <p class="text-sm text-zinc-400">
@@ -98,7 +223,7 @@
         <input type="hidden" name="action" value="register_c2b">
         <button
           type="submit"
-          class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+          class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:min-h-0 sm:w-auto sm:py-2"
         >
           Connect Paybill payments
         </button>
@@ -108,8 +233,11 @@
     <div class="space-y-3">
       <p class="text-sm font-medium text-zinc-200">Fee reminders</p>
       <p class="max-w-2xl text-sm text-zinc-400">
-        Overdue balances above KES 50 can get a WhatsApp reminder (pay, promise a date, or talk to the school).
-        At most one reminder per parent per day and two per week. Quiet hours are 8:00 pm – 8:00 am (Nairobi).
+        Overdue balances above KES 50 can get a WhatsApp reminder (M-Pesa, partial, cash, promise, or talk to the school).
+        At most one reminder per parent per day and two per week.
+        Quiet hours are {{ quiet_hours_label }} (Nairobi) — reminders go out {{ messaging_hours_label }}.
+        Change quiet hours above and save school settings.
+        Parents still confirm the admission number before the agent discusses balances on inbound chats.
         Parents who reply STOP are not messaged.
       </p>
       {% if ops_reminders %}
@@ -128,7 +256,7 @@
           <span class="text-zinc-200">{{ reminder_preview.paused }}</span> paused.
         </p>
       {% endif %}
-      <div class="relative inline-block">
+      <div class="relative block w-full sm:inline-block sm:w-auto">
         <form method="post" action="{% url 'dashboard:school_settings' %}" hx-boost="false" id="run-reminders-form">
           {% csrf_token %}
           <input type="hidden" name="action" value="run_fee_reminders">
@@ -143,7 +271,7 @@
           <button
             type="submit"
             {% if reminder_preview.in_quiet_hours %}disabled{% endif %}
-            class="group relative rounded-md border px-4 py-2 text-sm font-semibold {% if reminder_preview.in_quiet_hours %}cursor-not-allowed border-zinc-900 text-zinc-600{% else %}border-zinc-800 text-zinc-300 hover:border-yellow-400 hover:text-yellow-400{% endif %}"
+            class="group relative inline-flex min-h-11 w-full items-center justify-center rounded-md border px-4 py-2.5 text-sm font-semibold sm:min-h-0 sm:w-auto sm:py-2 {% if reminder_preview.in_quiet_hours %}cursor-not-allowed border-zinc-900 text-zinc-600{% else %}border-zinc-800 text-zinc-300 hover:border-yellow-400 hover:text-yellow-400{% endif %}"
           >
             Send reminders now
             {% if reminder_preview.in_quiet_hours %}
@@ -151,7 +279,7 @@
                 class="pointer-events-none absolute bottom-full left-0 z-10 mb-2 hidden w-64 rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-left text-xs font-normal normal-case tracking-normal text-zinc-300 group-hover:block group-focus:block"
                 role="tooltip"
               >
-                Reminders only go out between 8:00 am and 8:00 pm (Nairobi). Try again in the morning.
+                Reminders only go out between {{ messaging_hours_label }} (Nairobi). Adjust quiet hours above if you need to send now.
               </span>
             {% endif %}
           </button>
@@ -161,10 +289,10 @@
 
     <div class="space-y-4">
       <p class="text-sm font-medium text-zinc-200">Academic years</p>
-      <form method="post" action="{% url 'dashboard:school_settings' %}" class="flex flex-wrap items-end gap-3" hx-boost="false">
+      <form method="post" action="{% url 'dashboard:school_settings' %}" class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end" hx-boost="false">
         {% csrf_token %}
         <input type="hidden" name="action" value="add_year">
-        <div class="min-w-[12rem] flex-1">
+        <div class="min-w-0 w-full flex-1 sm:min-w-[12rem]">
           <label for="year_name" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Year name</label>
           <input
             id="year_name"
@@ -172,19 +300,19 @@
             type="text"
             placeholder="2026"
             required
-            class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+            class="min-h-11 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400 sm:min-h-0"
           >
         </div>
-        <label class="inline-flex items-center gap-2 text-sm text-zinc-400">
+        <label class="inline-flex min-h-11 items-center gap-2 text-sm text-zinc-400 sm:min-h-0">
           <input type="checkbox" name="make_current" class="rounded border-zinc-700 bg-zinc-950 text-yellow-400">
           Set as current
         </label>
-        <button type="submit" class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300">
+        <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:min-h-0 sm:w-auto sm:py-2">
           Add year
         </button>
       </form>
 
-      <div class="overflow-x-auto rounded-md border border-zinc-800">
+      <div class="hidden overflow-x-auto rounded-md border border-zinc-800 md:block">
         <table class="min-w-full border-collapse text-left text-sm">
           <thead class="bg-zinc-950">
             <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
@@ -223,6 +351,49 @@
           </tbody>
         </table>
       </div>
+
+      <ul class="space-y-2 md:hidden">
+        {% for year in academic_years %}
+          <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+            <div class="flex items-center justify-between gap-3">
+              <p class="font-medium text-zinc-100">{{ year.name }}</p>
+              {% if year.is_current %}
+                <span class="font-mono text-[10px] uppercase tracking-wider text-yellow-400">Current</span>
+              {% endif %}
+            </div>
+            {% if not year.is_current %}
+              <form method="post" action="{% url 'dashboard:school_settings' %}" class="mt-3" hx-boost="false">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="set_current_year">
+                <input type="hidden" name="year_id" value="{{ year.pk }}">
+                <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400">Make current</button>
+              </form>
+            {% endif %}
+          </li>
+        {% empty %}
+          <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-6 text-center text-sm text-zinc-500">No academic years yet.</li>
+        {% endfor %}
+      </ul>
     </div>
   </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  document.querySelectorAll('.secret-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var input = document.getElementById(btn.getAttribute('data-target'));
+      if (!input) return;
+      var show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+      var base = (btn.getAttribute('aria-label') || '').replace(/^(Show|Hide)\s+/i, '');
+      btn.setAttribute('aria-label', (show ? 'Hide ' : 'Show ') + base);
+      btn.querySelector('.icon-show').classList.toggle('hidden', show);
+      btn.querySelector('.icon-hide').classList.toggle('hidden', !show);
+    });
+  });
+})();
+</script>
 {% endblock %}

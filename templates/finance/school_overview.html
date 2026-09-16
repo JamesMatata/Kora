@@ -24,23 +24,23 @@
           Fee due, collections, and arrears across all class streams.
         </p>
       </div>
-      <div class="flex shrink-0 flex-wrap gap-3">
+      <div class="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:shrink-0 sm:flex-wrap sm:gap-3">
         <a
           href="{% url 'finance:term_fee_plans' %}"
-          class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+          class="inline-flex min-h-11 items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:min-h-0 sm:py-2"
         >
           Fee plans
         </a>
         <a
           href="{% url 'finance:fee_ledger' %}"
-          class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+          class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:min-h-0 sm:py-2"
         >
           Fee ledger
         </a>
         <button
           type="button"
           id="open-charge-modal"
-          class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-400 hover:border-zinc-600"
+          class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-400 hover:border-zinc-600 sm:min-h-0 sm:py-2"
           title="Legacy one-off charges"
         >
           Legacy charge
@@ -63,7 +63,7 @@
       </div>
     </div>
 
-    <div class="overflow-x-auto rounded-md border border-zinc-800">
+    <div class="hidden overflow-x-auto rounded-md border border-zinc-800 md:block">
       <table class="min-w-full border-collapse text-left text-sm">
         <thead class="bg-black">
           <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
@@ -96,10 +96,40 @@
       </table>
     </div>
 
+    <ul class="space-y-2 md:hidden">
+      {% for row in stream_summaries %}
+        <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="font-medium text-zinc-100">{{ row.stream }}</p>
+              <p class="mt-0.5 text-xs text-zinc-500">{{ row.student_count }} student{{ row.student_count|pluralize }}</p>
+            </div>
+            <p class="shrink-0 font-mono text-sm text-yellow-400">{{ row.balance }}</p>
+          </div>
+          <dl class="mt-3 grid grid-cols-2 gap-2 text-center">
+            <div>
+              <dt class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Due</dt>
+              <dd class="mt-0.5 font-mono text-xs text-zinc-300">{{ row.due }}</dd>
+            </div>
+            <div>
+              <dt class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Paid</dt>
+              <dd class="mt-0.5 font-mono text-xs text-zinc-300">{{ row.paid }}</dd>
+            </div>
+          </dl>
+          <a
+            href="{% url 'dashboard:stream_finance' row.stream.slug %}"
+            class="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-800 px-3 py-2 text-sm font-semibold text-yellow-400 hover:border-yellow-400"
+          >Open</a>
+        </li>
+      {% empty %}
+        <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-8 text-center text-sm text-zinc-500">No classes yet.</li>
+      {% endfor %}
+    </ul>
+
     {% if recent_charges %}
     <div class="space-y-3">
       <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Recent charges</p>
-      <div class="overflow-x-auto rounded-md border border-zinc-800">
+      <div class="hidden overflow-x-auto rounded-md border border-zinc-800 md:block">
         <table class="min-w-full border-collapse text-left text-sm">
           <thead class="bg-black">
             <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
@@ -123,12 +153,26 @@
           </tbody>
         </table>
       </div>
+      <ul class="space-y-2 md:hidden">
+        {% for charge in recent_charges %}
+          <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+            <div class="flex items-start justify-between gap-3">
+              <p class="min-w-0 font-medium text-zinc-100">{{ charge.name }}</p>
+              <p class="shrink-0 font-mono text-sm text-yellow-400">{{ charge.amount }}</p>
+            </div>
+            <p class="mt-1 text-xs text-zinc-500">
+              {% if charge.due_date %}Due {{ charge.due_date|date:"M j, Y" }}{% else %}No due date{% endif %}
+              · {% if charge.stream %}{{ charge.stream }}{% elif charge.grade_level %}{{ charge.grade_level.name }}{% else %}School-wide{% endif %}
+            </p>
+          </li>
+        {% endfor %}
+      </ul>
     </div>
     {% endif %}
 
     <div class="space-y-3">
       <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Recent payments</p>
-      <div class="overflow-x-auto rounded-md border border-zinc-800">
+      <div class="hidden overflow-x-auto rounded-md border border-zinc-800 md:block">
         <table class="min-w-full border-collapse text-left text-sm">
           <thead class="bg-black">
             <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
@@ -156,6 +200,22 @@
           </tbody>
         </table>
       </div>
+      <ul class="space-y-2 md:hidden">
+        {% for payment in recent_payments %}
+          <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="font-medium text-zinc-100">{{ payment.student_fee.student.full_name }}</p>
+                <p class="mt-0.5 text-xs text-zinc-400">{{ payment.student_fee.fee_structure.name }}</p>
+              </div>
+              <p class="shrink-0 font-mono text-sm text-yellow-400">{{ payment.amount }}</p>
+            </div>
+            <p class="mt-1 font-mono text-[10px] text-zinc-500">{{ payment.paid_at|date:"M j, Y H:i" }}</p>
+          </li>
+        {% empty %}
+          <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-8 text-center text-sm text-zinc-500">No payments recorded yet.</li>
+        {% endfor %}
+      </ul>
     </div>
   </div>
 

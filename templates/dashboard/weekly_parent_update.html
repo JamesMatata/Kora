@@ -27,16 +27,16 @@
           {% if update.sent_at %} · Sent {{ update.sent_at|date:"d M Y H:i" }}{% endif %}
         </p>
       </div>
-      <div class="flex flex-wrap gap-2">
+      <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
         <a
           href="{% url 'dashboard:stream_attendance' stream.slug %}"
-          class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+          class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
         >
           Attendance
         </a>
         <a
           href="{% url 'dashboard:stream_roster' stream.slug %}"
-          class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+          class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
         >
           Roster
         </a>
@@ -51,7 +51,7 @@
 
     <form method="post" id="weekly-update-form" class="space-y-4">
       {% csrf_token %}
-      <div class="overflow-x-auto rounded-md border border-zinc-800">
+      <div class="weekly-desktop hidden overflow-x-auto rounded-md border border-zinc-800 md:block">
         <table class="min-w-full border-collapse text-left text-sm">
           <thead class="bg-black">
             <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
@@ -114,14 +114,55 @@
         </table>
       </div>
 
+      <ul class="weekly-mobile space-y-3 md:hidden">
+        {% for line in lines %}
+          <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+            <p class="font-medium text-zinc-100">{{ line.student.full_name }}</p>
+            <p class="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-500">{{ line.student.admission_number }}</p>
+            <p class="mt-2 text-sm text-zinc-300">{{ line.attendance_summary }}</p>
+            <label class="mt-3 mb-1 block font-mono text-[10px] uppercase tracking-wider text-zinc-500">Teacher note</label>
+            <textarea
+              name="note_{{ line.pk }}"
+              rows="3"
+              {% if update.status == 'SENT' %}readonly{% endif %}
+              class="w-full rounded-md border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+              placeholder="Optional behaviour / learning note"
+            >{{ line.teacher_note }}</textarea>
+            {% if line.polished_note %}
+              <p class="mt-2 text-xs text-zinc-500">Clarified preview:</p>
+              <p class="mt-1 text-sm text-zinc-300">{{ line.polished_note }}</p>
+            {% endif %}
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+              <span class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+                {% if line.sent_at %}Sent{% elif line.skipped_reason %}{{ line.skipped_reason }}{% else %}Draft{% endif %}
+              </span>
+              {% if update.status != 'SENT' %}
+                <button
+                  type="submit"
+                  name="action"
+                  value="polish"
+                  class="inline-flex min-h-9 items-center rounded-md border border-zinc-800 px-2 py-1.5 text-xs font-semibold text-zinc-400 hover:border-yellow-400 hover:text-yellow-400"
+                  formaction="?line={{ line.pk }}"
+                  onclick="document.getElementById('line-id-field').value='{{ line.pk }}';"
+                >
+                  Clarify note
+                </button>
+              {% endif %}
+            </div>
+          </li>
+        {% empty %}
+          <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-6 text-sm text-zinc-500">No active students in this stream.</li>
+        {% endfor %}
+      </ul>
+
       <input type="hidden" name="line_id" id="line-id-field" value="">
 
-      <div class="flex flex-wrap gap-3">
+      <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-3">
         <button
           type="submit"
           name="action"
           value="save"
-          class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+          class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
         >
           Save draft
         </button>
@@ -130,7 +171,7 @@
             type="submit"
             name="action"
             value="send"
-            class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+            class="inline-flex min-h-11 items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300"
           >
             Send WhatsApp updates
           </button>
@@ -138,7 +179,7 @@
           <button
             type="button"
             disabled
-            class="cursor-not-allowed rounded-md border border-zinc-900 px-4 py-2 text-sm font-semibold text-zinc-600"
+            class="cursor-not-allowed rounded-md border border-zinc-900 px-4 py-2.5 text-sm font-semibold text-zinc-600"
             title="Available Friday after 4:00 pm Nairobi"
           >
             Send WhatsApp updates
@@ -147,4 +188,27 @@
       </div>
     </form>
   </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var form = document.getElementById('weekly-update-form');
+  if (!form) return;
+  function syncDisabled() {
+    var mobile = window.matchMedia('(max-width: 767px)').matches;
+    form.querySelectorAll('.weekly-desktop textarea, .weekly-desktop button').forEach(function (el) {
+      if (el.name && el.name.indexOf('note_') === 0) el.disabled = mobile;
+      if (el.getAttribute('value') === 'polish') el.disabled = mobile;
+    });
+    form.querySelectorAll('.weekly-mobile textarea, .weekly-mobile button').forEach(function (el) {
+      if (el.name && el.name.indexOf('note_') === 0) el.disabled = !mobile;
+      if (el.getAttribute('value') === 'polish') el.disabled = !mobile;
+    });
+  }
+  syncDisabled();
+  window.matchMedia('(max-width: 767px)').addEventListener('change', syncDisabled);
+  form.addEventListener('submit', syncDisabled);
+})();
+</script>
 {% endblock %}

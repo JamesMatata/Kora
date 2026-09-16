@@ -3,7 +3,7 @@
 {% block title %}Sign in · Kora{% endblock %}
 
 {% block body %}
-  <main class="flex min-h-full items-center justify-center px-4 pb-16 pt-36 sm:pt-40">
+  <main class="flex flex-1 items-center justify-center px-4 pb-16 pt-24 sm:pt-40">
     <div class="w-full max-w-sm">
       <h1 class="text-3xl font-semibold text-zinc-100">Sign in</h1>
       <p class="mt-2 text-sm text-zinc-400">Welcome back. Access your school workspace.</p>
@@ -25,7 +25,7 @@
           autocomplete="username"
           placeholder="Email"
           aria-label="Email"
-          class="w-full rounded-md border border-zinc-800 bg-black px-3 py-2.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-yellow-400"
+          class="min-h-11 w-full rounded-md border border-zinc-800 bg-black px-3 py-2.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-yellow-400"
         >
 
         <div class="relative">
@@ -37,7 +37,7 @@
             autocomplete="current-password"
             placeholder="Password"
             aria-label="Password"
-            class="w-full rounded-md border border-zinc-800 bg-black px-3 py-2.5 pr-11 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-yellow-400"
+            class="min-h-11 w-full rounded-md border border-zinc-800 bg-black px-3 py-2.5 pr-11 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-yellow-400"
           >
           <button
             type="button"
@@ -56,7 +56,7 @@
           </button>
         </div>
 
-        <button type="submit" class="w-full rounded-md border border-yellow-400 bg-yellow-400 px-3 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
+        <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-3 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300">
           Sign in
         </button>
       </form>

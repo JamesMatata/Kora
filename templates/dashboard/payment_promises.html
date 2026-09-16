@@ -23,31 +23,32 @@
       </div>
       <a
         href="{% url 'finance:fee_ledger' %}"
-        class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+        class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:min-h-0 sm:w-auto sm:py-2"
       >
         Fee ledger
       </a>
     </div>
 
-    <form method="get" class="flex flex-wrap items-end gap-3 rounded-md border border-zinc-800 bg-black p-4">
-      <div>
+    <form method="get" class="flex flex-col gap-3 rounded-md border border-zinc-800 bg-black p-4 sm:flex-row sm:flex-wrap sm:items-end">
+      <div class="w-full sm:w-auto">
         <label for="promise-status" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Status</label>
         <select
           id="promise-status"
           name="status"
-          class="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+          class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400 sm:w-auto"
         >
           {% for value, label in status_choices %}
             <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
       </div>
-      <button type="submit" class="rounded-md border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400">
+      <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-700 px-4 py-2.5 text-sm font-semibold text-zinc-200 hover:border-yellow-400 hover:text-yellow-400 sm:min-h-0 sm:w-auto sm:py-2">
         Filter
       </button>
     </form>
 
-    <div class="overflow-x-auto rounded-md border border-zinc-800">
+    {# Desktop #}
+    <div class="hidden overflow-x-auto rounded-md border border-zinc-800 md:block">
       <table class="min-w-full border-collapse text-left text-sm">
         <thead class="bg-black">
           <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
@@ -69,7 +70,7 @@
               <td class="px-4 py-3 text-zinc-300">{{ row.invoice.term }}</td>
               <td class="px-4 py-3 font-mono text-xs text-yellow-400">{{ row.promise.promised_amount }}</td>
               <td class="px-4 py-3 {% if row.is_overdue %}text-red-400{% else %}text-zinc-400{% endif %}">
-                {{ row.promise.promised_date|date:"d M Y" }}
+                {{ row.promise.promised_date_display }}
                 {% if row.is_overdue %}<span class="ml-1 font-mono text-[10px] uppercase">Overdue</span>{% endif %}
               </td>
               <td class="px-4 py-3 font-mono text-[10px] uppercase text-zinc-400">{{ row.promise.get_status_display }}</td>
@@ -112,6 +113,57 @@
       </table>
     </div>
 
+    {# Mobile #}
+    <ul class="space-y-2 md:hidden">
+      {% for row in rows %}
+        <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="font-medium text-zinc-100">{{ row.student.full_name }}</p>
+              <p class="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-500">{{ row.student.admission_number }}</p>
+              <p class="mt-1 text-xs text-zinc-400">{{ row.invoice.term }}</p>
+            </div>
+            <div class="shrink-0 text-right">
+              <p class="font-mono text-sm text-yellow-400">{{ row.promise.promised_amount }}</p>
+              <p class="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-400">{{ row.promise.get_status_display }}</p>
+            </div>
+          </div>
+          <p class="mt-2 text-xs {% if row.is_overdue %}text-red-400{% else %}text-zinc-500{% endif %}">
+            By {{ row.promise.promised_date_display }}{% if row.is_overdue %} · overdue{% endif %}
+          </p>
+          <div class="mt-3 grid grid-cols-2 gap-2">
+            <a href="{{ row.statement_url }}" class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400">Statement</a>
+            {% if row.promise.status == 'PENDING' %}
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="promise_id" value="{{ row.promise.pk }}">
+                <input type="hidden" name="return_status" value="{{ status_filter }}">
+                <input type="hidden" name="action" value="honor">
+                <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-3 py-2 text-sm font-semibold text-black hover:bg-yellow-300">Honor</button>
+              </form>
+              <form method="post" class="col-span-2">
+                {% csrf_token %}
+                <input type="hidden" name="promise_id" value="{{ row.promise.pk }}">
+                <input type="hidden" name="return_status" value="{{ status_filter }}">
+                <input type="hidden" name="action" value="break">
+                <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-400 hover:border-red-400 hover:text-red-400">Break</button>
+              </form>
+            {% else %}
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="promise_id" value="{{ row.promise.pk }}">
+                <input type="hidden" name="return_status" value="{{ status_filter }}">
+                <input type="hidden" name="action" value="reopen">
+                <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400">Reopen</button>
+              </form>
+            {% endif %}
+          </div>
+        </li>
+      {% empty %}
+        <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-8 text-center text-sm text-zinc-500">No payment promises for this filter.</li>
+      {% endfor %}
+    </ul>
+
     <section class="rounded-md border border-zinc-800 bg-black p-4">
       <h3 class="text-sm font-semibold text-zinc-200">Add promise</h3>
       <form method="post" class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -153,7 +205,7 @@
           >
         </div>
         <div class="sm:col-span-2 lg:col-span-4">
-          <button type="submit" class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300">
+          <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:min-h-0 sm:w-auto sm:py-2">
             Save promise
           </button>
         </div>

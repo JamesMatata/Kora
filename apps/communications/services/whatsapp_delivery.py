@@ -106,30 +106,65 @@ def _hour_in_window(hour: int, start: int, end: int) -> bool:
     return start <= hour < end
 
 
-def quiet_windows() -> list[tuple[int, int]]:
-    start = int(getattr(settings, 'WHATSAPP_QUIET_HOUR_START', 20))
-    end = int(getattr(settings, 'WHATSAPP_QUIET_HOUR_END', 8))
+def quiet_windows(*, school=None) -> list[tuple[int, int]]:
+    """
+    Quiet-hour window(s) for fee reminders.
+
+    Prefer per-school settings; fall back to platform env defaults.
+    """
+    if school is not None:
+        start = int(getattr(school, 'reminder_quiet_hour_start', 20) or 20)
+        end = int(getattr(school, 'reminder_quiet_hour_end', 8) or 8)
+    else:
+        start = int(getattr(settings, 'WHATSAPP_QUIET_HOUR_START', 20))
+        end = int(getattr(settings, 'WHATSAPP_QUIET_HOUR_END', 8))
+    start = max(0, min(23, start))
+    end = max(0, min(23, end))
     return [(start, end)]
 
 
-def in_quiet_period(*, now=None) -> bool:
+def in_quiet_period(*, now=None, school=None) -> bool:
     current = local_now(now=now)
     hour = current.hour
-    for start, end in quiet_windows():
+    for start, end in quiet_windows(school=school):
         if _hour_in_window(hour, start, end):
             return True
     return False
 
 
-def next_delivery_at(*, now=None) -> datetime:
+def next_delivery_at(*, now=None, school=None) -> datetime:
     """Next local datetime outside quiet hours (scan hour-by-hour, max 36h)."""
     current = local_now(now=now)
     candidate = current.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
     for _ in range(36):
-        if not in_quiet_period(now=candidate):
+        if not in_quiet_period(now=candidate, school=school):
             return candidate
         candidate += timedelta(hours=1)
     return current + timedelta(hours=1)
+
+
+def format_quiet_hours_label(*, school=None) -> str:
+    """Human label like '8:00 pm – 8:00 am' for UI copy."""
+    start, end = quiet_windows(school=school)[0]
+
+    def _fmt(hour: int) -> str:
+        suffix = 'am' if hour < 12 else 'pm'
+        h12 = hour % 12 or 12
+        return f'{h12}:00 {suffix}'
+
+    return f'{_fmt(start)} – {_fmt(end)}'
+
+
+def format_messaging_hours_label(*, school=None) -> str:
+    """Inverse of quiet hours — when reminders may go out."""
+    start, end = quiet_windows(school=school)[0]
+    # Messaging allowed from end .. start (wrapping).
+    def _fmt(hour: int) -> str:
+        suffix = 'am' if hour < 12 else 'pm'
+        h12 = hour % 12 or 12
+        return f'{h12}:00 {suffix}'
+
+    return f'{_fmt(end)} – {_fmt(start)}'
 
 
 def contacted_on_local_date(last_contacted_at, *, day=None) -> bool:

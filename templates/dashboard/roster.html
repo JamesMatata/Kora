@@ -32,7 +32,7 @@
         <div class="flex shrink-0 flex-wrap items-center gap-2">
           <a
             href="{% url 'dashboard:student_create' stream.slug %}"
-            class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+            class="hidden rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300 sm:inline-flex"
           >
             Add student
           </a>
@@ -40,7 +40,7 @@
             href="{% url 'dashboard:student_import' stream.slug %}"
             title="Import students"
             aria-label="Import students"
-            class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-zinc-800 bg-black text-yellow-400 hover:border-yellow-400"
+            class="hidden h-9 w-9 items-center justify-center rounded-md border border-zinc-800 bg-black text-yellow-400 hover:border-yellow-400 sm:inline-flex"
           >
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M12 3v10m0 0l-3.5-3.5M12 13l3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -49,22 +49,37 @@
           </a>
           <a
             href="{% url 'dashboard:stream_attendance' stream.slug %}"
-            class="rounded-md border border-zinc-800 bg-black px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+            class="hidden rounded-md border border-zinc-800 bg-black px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:inline-flex"
           >
             Attendance
           </a>
           <a
             href="{% url 'dashboard:weekly_parent_update' stream.slug %}"
-            class="rounded-md border border-zinc-800 bg-black px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+            class="hidden rounded-md border border-zinc-800 bg-black px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:inline-flex"
           >
             Weekly update
           </a>
           <a
             href="{% url 'dashboard:stream_finance' stream.slug %}"
-            class="rounded-md border border-zinc-800 bg-black px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+            class="hidden rounded-md border border-zinc-800 bg-black px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:inline-flex"
           >
             Finance
           </a>
+        </div>
+      </div>
+      {# Mobile actions #}
+      <div class="flex flex-col gap-2 sm:hidden">
+        <a
+          href="{% url 'dashboard:student_create' stream.slug %}"
+          class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black"
+        >
+          Add student
+        </a>
+        <div class="grid grid-cols-2 gap-2">
+          <a href="{% url 'dashboard:student_import' stream.slug %}" class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-3 py-2 text-sm font-semibold text-yellow-400">Import</a>
+          <a href="{% url 'dashboard:stream_attendance' stream.slug %}" class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-300">Attendance</a>
+          <a href="{% url 'dashboard:weekly_parent_update' stream.slug %}" class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-300">Weekly update</a>
+          <a href="{% url 'dashboard:stream_finance' stream.slug %}" class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-300">Finance</a>
         </div>
       </div>
       <div class="max-w-md">
@@ -75,7 +90,7 @@
           name="q"
           value="{{ query }}"
           placeholder="Search name or admission number"
-          class="w-full rounded-md border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+          class="min-h-11 w-full rounded-md border border-zinc-800 bg-black px-3 py-2.5 text-sm text-zinc-100 outline-none focus:border-yellow-400"
           hx-get="{% url 'dashboard:stream_roster' stream.slug %}"
           hx-trigger="keyup changed delay:300ms, search"
           hx-target="#roster-table"

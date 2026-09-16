@@ -25,14 +25,15 @@
       {% if can_access_finance %}
         <a
           href="{% url 'finance:fee_ledger' %}"
-          class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+          class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:min-h-0 sm:w-auto sm:py-2"
         >
           Fee ledger
         </a>
       {% endif %}
     </div>
 
-    <div class="overflow-x-auto rounded-md border border-zinc-800">
+    {# Desktop #}
+    <div class="hidden overflow-x-auto rounded-md border border-zinc-800 md:block">
       <table class="min-w-full border-collapse text-left text-sm">
         <thead class="bg-black">
           <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
@@ -93,5 +94,44 @@
         </tbody>
       </table>
     </div>
+
+    {# Mobile #}
+    <ul class="space-y-2 md:hidden">
+      {% for row in rows %}
+        <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="font-medium text-zinc-100">{{ row.parent.parent_name|default:"—" }}</p>
+              <p class="mt-0.5 font-mono text-xs text-zinc-300">{{ row.parent.phone_number }}</p>
+            </div>
+            <span class="shrink-0 font-mono text-[10px] uppercase tracking-wider text-zinc-400">{{ row.reason_label }}</span>
+          </div>
+          <div class="mt-2 space-y-0.5 text-xs text-zinc-400">
+            {% for student in row.students %}
+              <p>{{ student.full_name }} <span class="font-mono uppercase text-zinc-500">{{ student.admission_number }}</span></p>
+            {% empty %}
+              <p class="text-zinc-600">No linked students</p>
+            {% endfor %}
+          </div>
+          <p class="mt-2 font-mono text-[10px] text-zinc-500">Paused {{ row.parent.reminders_paused_at|date:"d M Y H:i" }}</p>
+          {% if can_resume %}
+            <form method="post" class="mt-3">
+              {% csrf_token %}
+              <input type="hidden" name="parent_id" value="{{ row.parent.pk }}">
+              <button
+                type="submit"
+                class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-3 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+              >
+                Resume reminders
+              </button>
+            </form>
+          {% endif %}
+        </li>
+      {% empty %}
+        <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-8 text-center text-sm text-zinc-500">
+          No parents have paused fee reminders.
+        </li>
+      {% endfor %}
+    </ul>
   </div>
 {% endblock %}

@@ -209,13 +209,22 @@ def notify_parent_payment_allocation(*, payment_tx, allocation: AllocationResult
     """Append credit notice onto the normal receipt WhatsApp when overpaid."""
     if not allocation.has_credit:
         return
-    from communications.services.twilio_service import send_whatsapp_message
+    from communications.services.identity import resolve_parent_identity
+    from communications.services.twilio_service import (
+        parent_whatsapp_destination,
+        send_whatsapp_message,
+    )
     from finance.services.receipts import format_kes
 
     student = payment_tx.invoice.student
-    to_phone = (payment_tx.phone_number or student.parent_phone or '').strip()
-    if not to_phone:
+    roster_phone = (student.parent_phone or payment_tx.phone_number or '').strip()
+    if not roster_phone:
         return
+    try:
+        parent = resolve_parent_identity(payment_tx.school, roster_phone)
+        to_phone = parent_whatsapp_destination(parent)
+    except ValueError:
+        to_phone = roster_phone
     body = (
         f'*{payment_tx.school.name} — payment note*\n\n'
         f'Asante. We received {format_kes(allocation.amount_received)} '

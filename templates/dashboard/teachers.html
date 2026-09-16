@@ -25,13 +25,13 @@
       <button
         type="button"
         id="open-invite-modal"
-        class="shrink-0 rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+        class="inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:w-auto sm:py-2"
       >
         Invite Staff
       </button>
     </div>
 
-    <div class="overflow-x-auto rounded-md border border-zinc-800">
+    <div class="hidden overflow-x-auto rounded-md border border-zinc-800 md:block">
       <table class="min-w-full border-collapse text-left text-sm">
         <thead class="bg-black">
           <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
@@ -93,6 +93,51 @@
         </tbody>
       </table>
     </div>
+
+    <ul class="space-y-2 md:hidden">
+      {% for row in staff_rows %}
+        <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="font-medium text-zinc-100">{{ row.name }}</p>
+              <p class="mt-0.5 truncate font-mono text-xs text-zinc-400">{{ row.user.email }}</p>
+            </div>
+            {% if row.user.is_active %}
+              <span class="shrink-0 font-mono text-[10px] uppercase tracking-wider text-yellow-400">Active</span>
+            {% else %}
+              <span class="shrink-0 font-mono text-[10px] uppercase tracking-wider text-red-400">Inactive</span>
+            {% endif %}
+          </div>
+          <p class="mt-2">
+            <span class="rounded-md border border-yellow-400 px-2 py-0.5 font-mono text-[10px] uppercase text-yellow-400">{{ row.role }}</span>
+          </p>
+          {% if row.streams %}
+            <div class="mt-2 flex flex-wrap gap-1">
+              {% for stream in row.streams %}
+                <a href="{% url 'dashboard:stream_roster' stream.slug %}" class="rounded-md border border-zinc-800 px-2 py-1 text-xs text-zinc-300">{{ stream }}</a>
+              {% endfor %}
+            </div>
+          {% endif %}
+          <button
+            type="button"
+            class="open-edit-staff-modal mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+            data-membership-id="{{ row.membership.pk }}"
+            data-first-name="{{ row.user.first_name }}"
+            data-last-name="{{ row.user.last_name }}"
+            data-email="{{ row.user.email }}"
+            data-is-admin="{% if row.membership.is_admin %}1{% else %}0{% endif %}"
+            data-is-teacher="{% if row.membership.is_teacher %}1{% else %}0{% endif %}"
+            data-is-bursar="{% if row.membership.is_bursar %}1{% else %}0{% endif %}"
+            data-phone-number="{{ row.membership.phone_number }}"
+            data-is-active="{% if row.user.is_active %}1{% else %}0{% endif %}"
+          >Edit</button>
+        </li>
+      {% empty %}
+        <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-8 text-center text-sm text-zinc-500">
+          No staff members yet. Invite your first teacher.
+        </li>
+      {% endfor %}
+    </ul>
 
     {% if pending_invitations %}
       <div class="rounded-md border border-zinc-800 bg-black p-4">

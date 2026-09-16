@@ -36,17 +36,17 @@
         </h2>
         <p class="mt-2 text-sm text-zinc-400">Balances for students in this class.</p>
       </div>
-      <div class="flex shrink-0 flex-wrap gap-2">
+      <div class="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:shrink-0 sm:flex-wrap">
         <button
           type="button"
           id="open-charge-modal"
-          class="rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+          class="inline-flex min-h-11 items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:min-h-0 sm:py-2"
         >
           New charge
         </button>
         <a
           href="{% url roster_back_url roster_slug %}"
-          class="rounded-md border border-zinc-800 px-4 py-2 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400"
+          class="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 hover:border-yellow-400 hover:text-yellow-400 sm:min-h-0 sm:py-2"
         >
           Roster
         </a>
@@ -68,7 +68,7 @@
       </div>
     </div>
 
-    <div class="overflow-x-auto rounded-md border border-zinc-800">
+    <div class="hidden overflow-x-auto rounded-md border border-zinc-800 md:block">
       <table class="w-full table-fixed border-collapse text-left text-sm">
         <thead class="bg-black">
           <tr class="border-b border-zinc-800 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
@@ -131,6 +131,64 @@
         </tbody>
       </table>
     </div>
+
+    <ul class="space-y-2 md:hidden">
+      {% for row in rows %}
+        <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3">
+          <div class="min-w-0">
+            <p class="font-medium text-zinc-100">{{ row.student.full_name }}</p>
+            <p class="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-500">{{ row.student.admission_number }}</p>
+          </div>
+          <dl class="mt-3 grid grid-cols-3 gap-2 text-center">
+            <div>
+              <dt class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Due</dt>
+              <dd class="mt-0.5 font-mono text-xs text-zinc-300">{{ row.due }}</dd>
+            </div>
+            <div>
+              <dt class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Paid</dt>
+              <dd class="mt-0.5 font-mono text-xs text-zinc-300">{{ row.paid }}</dd>
+            </div>
+            <div>
+              <dt class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Balance</dt>
+              <dd class="mt-0.5 font-mono text-xs text-yellow-400">{{ row.balance }}</dd>
+            </div>
+          </dl>
+          <form method="post" class="mt-3 space-y-2" hx-boost="false">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="payment">
+            <input type="hidden" name="admission_number" value="{{ row.student.admission_number }}">
+            <div>
+              <label for="pay-amount-m-{{ row.student.admission_number }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Amount</label>
+              <input
+                id="pay-amount-m-{{ row.student.admission_number }}"
+                type="number"
+                name="amount"
+                step="0.01"
+                min="0.01"
+                required
+                placeholder="0.00"
+                class="w-full rounded-md border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+              >
+            </div>
+            <div>
+              <label for="pay-note-m-{{ row.student.admission_number }}" class="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Note</label>
+              <input
+                id="pay-note-m-{{ row.student.admission_number }}"
+                type="text"
+                name="note"
+                placeholder="Optional"
+                class="w-full rounded-md border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-100 outline-none focus:border-yellow-400"
+              >
+            </div>
+            <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-3 py-2 text-sm font-semibold text-black hover:bg-yellow-300">
+              Save payment
+            </button>
+          </form>
+        </li>
+      {% empty %}
+        <li class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-8 text-center text-sm text-zinc-500">No students in this stream.</li>
+      {% endfor %}
+    </ul>
   </div>
 
   <div

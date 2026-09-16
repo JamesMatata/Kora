@@ -221,11 +221,39 @@ def twilio_whatsapp_webhook(request):
     ):
         return _twiml_response()
 
-    # Staff / escalated queues: no automated agent replies.
+    # Staff / escalated queues: no automated agent replies — except "menu"/"back"
+    # so a parent can reclaim the bot after an accidental escalation.
     if session.status in (
         ConversationSession.Status.STAFF_ACTIVE,
         ConversationSession.Status.ESCALATED_PENDING,
     ):
+        from communications.agent.understanding.replies import (
+            payment_menu_text,
+            wants_main_menu,
+        )
+
+        if (
+            session.status == ConversationSession.Status.ESCALATED_PENDING
+            and wants_main_menu(body)
+        ):
+            session.status = ConversationSession.Status.BOT_ACTIVE
+            session.agent_awaiting = 'menu'
+            session.assigned_staff = None
+            session.save(
+                update_fields=['status', 'agent_awaiting', 'assigned_staff']
+            )
+            student = session.active_student
+            send_whatsapp_message(
+                school,
+                from_phone,
+                payment_menu_text(
+                    student_name=student.full_name if student else ''
+                ),
+                session=session,
+                sender_type=MessageLog.Sender.BOT,
+            )
+            return _twiml_response()
+
         _notify_staff_inbox(
             school=school,
             from_phone=from_phone,
@@ -242,8 +270,9 @@ def twilio_whatsapp_webhook(request):
                 school,
                 from_phone,
                 (
-                    f'We could not find admission number “{(body or "").strip()}”. '
-                    'Please check and reply with the correct Student Admission Number.'
+                    f'We could not link admission number “{(body or "").strip()}” '
+                    'to this WhatsApp number. Use the parent phone on the school '
+                    'roster, or reply with the correct Student Admission Number.'
                 ),
                 session=session,
                 sender_type=MessageLog.Sender.BOT,
@@ -264,11 +293,40 @@ def twilio_whatsapp_webhook(request):
             )
         return _twiml_response()
 
-    session.refresh_from_db(fields=['status', 'active_student'])
+    session.refresh_from_db(
+        fields=['status', 'active_student', 'admission_confirmed_at', 'agent_awaiting']
+    )
     if session.status in (
         ConversationSession.Status.STAFF_ACTIVE,
         ConversationSession.Status.ESCALATED_PENDING,
     ):
+        from communications.agent.understanding.replies import (
+            payment_menu_text,
+            wants_main_menu,
+        )
+
+        if (
+            session.status == ConversationSession.Status.ESCALATED_PENDING
+            and wants_main_menu(body)
+        ):
+            session.status = ConversationSession.Status.BOT_ACTIVE
+            session.agent_awaiting = 'menu'
+            session.assigned_staff = None
+            session.save(
+                update_fields=['status', 'agent_awaiting', 'assigned_staff']
+            )
+            student = session.active_student or resolution.active_student
+            send_whatsapp_message(
+                school,
+                from_phone,
+                payment_menu_text(
+                    student_name=student.full_name if student else ''
+                ),
+                session=session,
+                sender_type=MessageLog.Sender.BOT,
+            )
+            return _twiml_response()
+
         _notify_staff_inbox(
             school=school,
             from_phone=from_phone,
@@ -287,12 +345,22 @@ def twilio_whatsapp_webhook(request):
         )
         return _twiml_response()
 
+    # Just unlocked via admission confirmation — kick off balance + pay options.
+    agent_body = body
+    if resolution.case == 'confirm':
+        agent_body = (
+            'Admission number confirmed. Please look up the full fee balance '
+            'including any previous unsettled terms, share the breakdown and total, '
+            'then ask if I want to pay now and offer M-Pesa, partial M-Pesa, '
+            'bring cash, or promise/defer.'
+        )
+
     _run_bot_agent(
         school=school,
         session=session,
         student=student,
         from_phone=from_phone,
-        body=body,
+        body=agent_body,
     )
     return _twiml_response()
 
@@ -358,12 +426,16 @@ def _run_bot_agent(*, school, session, student, from_phone: str, body: str) -> N
         return
 
     session.refresh_from_db(fields=['status'])
-    if session.status == ConversationSession.Status.ESCALATED_PENDING:
-        outbound = HANDOFF_MESSAGE
-    else:
-        outbound = (reply_text or '').strip() or (
-            f'Thank you. How else can I help regarding *{student.full_name}*?'
-        )
+    # Prefer the agent's own wording (e.g. cash vs talk-to-school). Only fall
+    # back to the generic handoff when escalated with no useful reply text.
+    outbound = (reply_text or '').strip()
+    if not outbound:
+        if session.status == ConversationSession.Status.ESCALATED_PENDING:
+            outbound = HANDOFF_MESSAGE
+        else:
+            outbound = (
+                f'Thank you. How else can I help regarding *{student.full_name}*?'
+            )
 
     send_whatsapp_message(
         school,

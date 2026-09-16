@@ -1,26 +1,27 @@
 {% if messages %}
-  <div class="mb-5 space-y-3" role="status" aria-live="polite">
+  <div
+    id="kora-toasts"
+    class="pointer-events-none fixed right-4 top-[4.5rem] z-[80] flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-2"
+    aria-live="polite"
+    aria-relevant="additions"
+  >
     {% for message in messages %}
       {% if 'error' in message.tags or 'danger' in message.tags %}
-        <div class="rounded-md border border-red-500 bg-kora-graphite px-4 py-3 text-sm text-red-400">
-          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-red-500">Error</p>
-          <p class="mt-1 text-kora-ink">{{ message }}</p>
-        </div>
+        {% with level='error' label='Failed' border='border-red-500' text='text-red-400' label_color='text-red-500' %}
+          {% include "includes/toast_item.html" %}
+        {% endwith %}
       {% elif 'success' in message.tags %}
-        <div class="rounded-md border border-yellow-400 bg-kora-graphite px-4 py-3 text-sm text-yellow-400">
-          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-yellow-400">Success</p>
-          <p class="mt-1 text-kora-ink">{{ message }}</p>
-        </div>
+        {% with level='success' label='Success' border='border-yellow-400' text='text-yellow-400' label_color='text-yellow-400' %}
+          {% include "includes/toast_item.html" %}
+        {% endwith %}
       {% elif 'warning' in message.tags %}
-        <div class="rounded-md border border-yellow-400 bg-kora-graphite px-4 py-3 text-sm text-yellow-400">
-          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-yellow-400">Warning</p>
-          <p class="mt-1 text-kora-ink">{{ message }}</p>
-        </div>
+        {% with level='warning' label='Warning' border='border-yellow-400/70' text='text-yellow-400' label_color='text-yellow-400' %}
+          {% include "includes/toast_item.html" %}
+        {% endwith %}
       {% else %}
-        <div class="rounded-md border border-zinc-800 bg-kora-graphite px-4 py-3 text-sm text-zinc-300">
-          <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Notice</p>
-          <p class="mt-1 text-kora-ink">{{ message }}</p>
-        </div>
+        {% with level='info' label='Info' border='border-zinc-700' text='text-zinc-300' label_color='text-zinc-500' %}
+          {% include "includes/toast_item.html" %}
+        {% endwith %}
       {% endif %}
     {% endfor %}
   </div>

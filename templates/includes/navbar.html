@@ -1,117 +1,231 @@
 {% load static %}
 {% load avatars %}
-<header class="fixed inset-x-0 top-0 z-50 flex h-14 w-full items-center justify-between border-b border-zinc-800 bg-black px-3 sm:px-4">
-  <div class="flex min-w-0 items-center gap-3">
+<header class="fixed inset-x-0 top-0 z-50 flex h-14 w-full items-center justify-between border-b border-zinc-800 bg-black px-2 sm:px-4">
+  <div class="flex min-w-0 items-center gap-1 sm:gap-3">
+    {% if not hide_sidebar %}
     <button
       type="button"
       id="sidebar-toggle"
-      class="inline-flex shrink-0 items-center justify-center text-zinc-100 hover:text-yellow-400"
-      aria-label="Toggle navigation"
+      class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-transparent text-zinc-100 hover:bg-transparent hover:text-yellow-400 focus:bg-transparent active:bg-transparent"
+      aria-label="Open menu"
       aria-controls="app-sidebar"
-      aria-expanded="true"
+      aria-expanded="false"
     >
-      <svg class="h-5 w-5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <svg class="sidebar-icon-open h-5 w-5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
         <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.5"/>
       </svg>
+      <svg class="sidebar-icon-close hidden h-5 w-5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
     </button>
+    {% endif %}
 
-    <a href="{% url 'dashboard:overview' %}" class="flex shrink-0 items-center no-underline">
+    {% if logo_inert %}
+    <span class="flex shrink-0 cursor-default items-center px-1" aria-label="Kora">
+      <img
+        src="{% static 'img/kora-logo.png' %}"
+        alt="Kora"
+        class="h-5 w-auto sm:h-6"
+      >
+    </span>
+    {% else %}
+    <a
+      href="{% if logo_href %}{{ logo_href }}{% else %}{% url 'dashboard:overview' %}{% endif %}"
+      id="{% if logo_confirm_exit %}nav-logo-exit{% endif %}"
+      class="flex shrink-0 items-center px-1 no-underline"
+    >
       <img
         src="{% static 'img/kora-logo.png' %}"
         alt="Kora"
         class="h-5 w-auto sm:h-6"
       >
     </a>
+    {% endif %}
   </div>
 
   {% if user.is_authenticated %}
-  <div class="ml-auto flex items-center gap-2 sm:gap-3">
-  <div class="relative max-w-[min(100%,18rem)]" id="tenant-switcher">
-    <button
-      type="button"
-      id="tenant-switcher-toggle"
-      class="flex w-full min-w-[10rem] items-center justify-between gap-2 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-left hover:border-yellow-400 sm:min-w-[14rem]"
-      aria-expanded="false"
-      aria-controls="tenant-switcher-menu"
-    >
-      <div class="min-w-0">
-        <p class="truncate text-sm font-medium text-zinc-100">
-          {% if active_school %}{{ active_school.name }}{% else %}Select a school{% endif %}
-        </p>
-      </div>
-      <svg class="h-4 w-4 shrink-0 text-yellow-400" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5"/>
-      </svg>
-    </button>
+  <div class="ml-auto flex items-center gap-0.5 sm:gap-2">
+    {# Desktop school switcher — hidden on mobile (lives in profile menu) #}
+    <div class="relative hidden max-w-[min(100%,18rem)] lg:block" id="tenant-switcher">
+      <button
+        type="button"
+        id="tenant-switcher-toggle"
+        class="flex w-full min-w-[10rem] items-center justify-between gap-2 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-left hover:border-yellow-400 sm:min-w-[14rem]"
+        aria-expanded="false"
+        aria-controls="tenant-switcher-menu"
+      >
+        <div class="min-w-0">
+          <p class="truncate text-sm font-medium text-zinc-100">
+            {% if active_school %}{{ active_school.name }}{% else %}Select a school{% endif %}
+          </p>
+        </div>
+        <svg class="h-4 w-4 shrink-0 text-yellow-400" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+      </button>
 
-    <div
-      id="tenant-switcher-menu"
-      class="absolute right-0 z-50 mt-1 hidden w-72 overflow-hidden rounded-md border border-zinc-800 bg-black"
-      role="menu"
-    >
-      <div class="max-h-60 overflow-y-auto">
-        {% for membership in user_memberships %}
-          {% if active_school and membership.school_id == active_school.id %}
-            <div class="flex flex-col border-b border-zinc-800 bg-zinc-950 px-3 py-2" role="menuitem" aria-current="true">
-              <span class="truncate text-sm text-yellow-400">{{ membership.school.name }}</span>
-              <span class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">{{ membership.role_label }} · current</span>
-            </div>
-          {% else %}
-            <form method="post" action="{% url 'tenants:switch' membership.school_id %}" hx-boost="false">
-              {% csrf_token %}
-              <button
-                type="submit"
-                class="flex w-full flex-col border-b border-zinc-800 px-3 py-2 text-left hover:bg-zinc-950"
-                role="menuitem"
-              >
-                <span class="truncate text-sm text-zinc-100">{{ membership.school.name }}</span>
-                <span class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">{{ membership.role_label }}</span>
-              </button>
-            </form>
-          {% endif %}
-        {% empty %}
-          <p class="px-3 py-3 text-sm text-zinc-500">No schools yet</p>
-        {% endfor %}
-      </div>
+      <div
+        id="tenant-switcher-menu"
+        class="absolute right-0 z-50 mt-1 hidden w-72 overflow-hidden rounded-md border border-zinc-800 bg-black"
+        role="menu"
+      >
+        <div class="max-h-60 overflow-y-auto">
+          {% for membership in user_memberships %}
+            {% if active_school and membership.school_id == active_school.id %}
+              <div class="flex flex-col border-b border-zinc-800 bg-zinc-950 px-3 py-2" role="menuitem" aria-current="true">
+                <span class="truncate text-sm text-yellow-400">{{ membership.school.name }}</span>
+                <span class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+                  {{ membership.role_label }} · current
+                  {% if membership.school.status == 'pending_review' %} · pending{% endif %}
+                  {% if membership.school.subscription.billing_state == 'locked' or membership.school.subscription.billing_state == 'grace' %} · payment due{% endif %}
+                </span>
+              </div>
+            {% else %}
+              <form method="post" action="{% url 'tenants:switch' membership.school_id %}" hx-boost="false">
+                {% csrf_token %}
+                <button
+                  type="submit"
+                  class="flex w-full flex-col border-b border-zinc-800 px-3 py-2.5 text-left hover:bg-zinc-950"
+                  role="menuitem"
+                >
+                  <span class="truncate text-sm text-zinc-100">{{ membership.school.name }}</span>
+                  <span class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+                    {{ membership.role_label }}
+                    {% if membership.school.status == 'pending_review' %} · pending{% endif %}
+                    {% if membership.school.subscription.billing_state == 'locked' or membership.school.subscription.billing_state == 'grace' %} · payment due{% endif %}
+                  </span>
+                </button>
+              </form>
+            {% endif %}
+          {% empty %}
+            <p class="px-3 py-3 text-sm text-zinc-500">No schools yet</p>
+          {% endfor %}
+        </div>
 
-      <div class="border-t border-zinc-800">
-        <a
-          href="{% url 'tenants:create' %}"
-          class="block px-3 py-2.5 text-sm font-semibold text-yellow-400 hover:bg-zinc-950"
-          role="menuitem"
-        >+ New School</a>
-        <a
-          href="{% url 'tenants:select' %}"
-          class="block border-t border-zinc-800 px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-950 hover:text-yellow-400"
-          role="menuitem"
-        >Manage all schools</a>
+        <div class="border-t border-zinc-800">
+          <a
+            href="{% url 'tenants:create' %}"
+            class="block px-3 py-2.5 text-sm font-semibold text-yellow-400 hover:bg-zinc-950"
+            role="menuitem"
+          >+ Apply for school</a>
+          <a
+            href="{% url 'tenants:select' %}"
+            class="block border-t border-zinc-800 px-3 py-2.5 text-sm text-zinc-400 hover:bg-zinc-950 hover:text-yellow-400"
+            role="menuitem"
+          >Manage all schools</a>
+        </div>
       </div>
     </div>
-  </div>
-  <a
-    href="{% url 'tenants:inbox' %}"
-    title="Inbox"
-    class="relative inline-flex h-9 w-9 shrink-0 items-center justify-center text-zinc-300 hover:text-yellow-400 {% if request.resolver_match.namespace == 'tenants' and request.resolver_match.url_name == 'inbox' %}text-yellow-400{% endif %}"
-  >
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M4 7.5A1.5 1.5 0 0 1 5.5 6h13A1.5 1.5 0 0 1 20 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5v-9z" stroke="currentColor" stroke-width="1.5"/>
-      <path d="M4.5 7.5 12 13l7.5-5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    {% if inbox_badge_count %}
-      <span class="absolute -right-0.5 -top-0.5 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-bold leading-4 text-black">
-        {{ inbox_badge_count }}
-      </span>
-    {% endif %}
-    <span class="sr-only">Inbox{% if inbox_badge_count %} ({{ inbox_badge_count }}){% endif %}</span>
-  </a>
-  <a
-    href="{% url 'tenants:profile' %}"
-    title="Profile"
-    class="inline-flex shrink-0 items-center justify-center {% if request.resolver_match.namespace == 'tenants' and request.resolver_match.url_name == 'profile' %}ring-2 ring-yellow-400 ring-offset-1 ring-offset-black rounded-full{% endif %}"
-  >
-    {% user_avatar user size=36 %}
-    <span class="sr-only">Profile</span>
-  </a>
+
+    <a
+      href="{% url 'tenants:inbox' %}"
+      title="Inbox"
+      class="relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-zinc-300 hover:bg-zinc-900 hover:text-yellow-400 {% if request.resolver_match.namespace == 'tenants' and request.resolver_match.url_name == 'inbox' %}text-yellow-400{% endif %}"
+    >
+      <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 7.5A1.5 1.5 0 0 1 5.5 6h13A1.5 1.5 0 0 1 20 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5v-9z" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M4.5 7.5 12 13l7.5-5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      {% if inbox_badge_count %}
+        <span class="absolute right-1 top-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-bold leading-4 text-black">
+          {{ inbox_badge_count }}
+        </span>
+      {% endif %}
+      <span class="sr-only">Inbox{% if inbox_badge_count %} ({{ inbox_badge_count }}){% endif %}</span>
+    </a>
+
+    <div class="relative" id="nav-profile-menu">
+      <button
+        type="button"
+        id="nav-profile-toggle"
+        class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:ring-2 hover:ring-yellow-400 {% if request.resolver_match.namespace == 'tenants' and request.resolver_match.url_name == 'profile' %}ring-2 ring-yellow-400{% endif %}"
+        aria-expanded="false"
+        aria-controls="nav-profile-dropdown"
+        aria-haspopup="menu"
+        aria-label="Account menu"
+      >
+        {% user_avatar user size=36 %}
+      </button>
+
+      <div
+        id="nav-profile-dropdown"
+        class="absolute right-0 z-50 mt-1 hidden w-[min(calc(100vw-1rem),18rem)] overflow-hidden rounded-md border border-zinc-800 bg-black"
+        role="menu"
+      >
+        <div class="border-b border-zinc-800 px-3 py-2.5">
+          <p class="truncate text-sm font-medium text-zinc-100">{{ user.get_full_name|default:user.email }}</p>
+          {% if role_label %}
+            <p class="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-yellow-400">{{ role_label }}</p>
+          {% endif %}
+        </div>
+
+        {# School switcher — primary on mobile; also available as compact list #}
+        <div class="border-b border-zinc-800 lg:hidden">
+          <p class="px-3 pt-2.5 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">School</p>
+          <div class="max-h-48 overflow-y-auto py-1">
+            {% for membership in user_memberships %}
+              {% if active_school and membership.school_id == active_school.id %}
+                <div class="px-3 py-2.5" role="menuitem" aria-current="true">
+                  <span class="block truncate text-sm text-yellow-400">{{ membership.school.name }}</span>
+                  <span class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Current · {{ membership.role_label }}</span>
+                </div>
+              {% else %}
+                <form method="post" action="{% url 'tenants:switch' membership.school_id %}" hx-boost="false">
+                  {% csrf_token %}
+                  <button type="submit" class="w-full px-3 py-2.5 text-left hover:bg-zinc-950" role="menuitem">
+                    <span class="block truncate text-sm text-zinc-100">{{ membership.school.name }}</span>
+                    <span class="font-mono text-[10px] uppercase tracking-wider text-zinc-500">{{ membership.role_label }}</span>
+                  </button>
+                </form>
+              {% endif %}
+            {% empty %}
+              <p class="px-3 py-2 text-sm text-zinc-500">No schools yet</p>
+            {% endfor %}
+          </div>
+          <a href="{% url 'tenants:select' %}" class="block border-t border-zinc-800 px-3 py-2.5 text-sm text-zinc-400 hover:bg-zinc-950 hover:text-yellow-400" role="menuitem">Manage schools</a>
+          <a href="{% url 'tenants:create' %}" class="block border-t border-zinc-800 px-3 py-2.5 text-sm font-semibold text-yellow-400 hover:bg-zinc-950" role="menuitem">+ Apply for school</a>
+        </div>
+
+        <a
+          href="{% url 'tenants:profile' %}"
+          class="block border-b border-zinc-800 px-3 py-2.5 text-sm text-zinc-300 hover:bg-zinc-950 hover:text-yellow-400"
+          role="menuitem"
+        >Profile</a>
+
+        {% if can_switch_role %}
+          <div class="border-b border-zinc-800 px-3 py-2">
+            <p class="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Work as</p>
+            <div class="flex gap-2">
+              <form method="post" action="{% url 'tenants:role_mode' 'admin' %}" hx-boost="false" class="flex-1">
+                {% csrf_token %}
+                <button
+                  type="submit"
+                  role="menuitem"
+                  class="w-full rounded-md border px-2 py-2 font-mono text-[10px] uppercase tracking-wider {% if role_mode == 'admin' %}border-yellow-400 bg-yellow-400 text-black{% else %}border-zinc-800 text-zinc-300{% endif %}"
+                >Admin</button>
+              </form>
+              <form method="post" action="{% url 'tenants:role_mode' 'teacher' %}" hx-boost="false" class="flex-1">
+                {% csrf_token %}
+                <button
+                  type="submit"
+                  role="menuitem"
+                  class="w-full rounded-md border px-2 py-2 font-mono text-[10px] uppercase tracking-wider {% if role_mode == 'teacher' %}border-yellow-400 bg-yellow-400 text-black{% else %}border-zinc-800 text-zinc-300{% endif %}"
+                >Teacher</button>
+              </form>
+            </div>
+          </div>
+        {% endif %}
+
+        <form method="post" action="{% url 'logout' %}" hx-boost="false">
+          {% csrf_token %}
+          <button
+            type="submit"
+            class="w-full px-3 py-2.5 text-left text-sm text-zinc-300 hover:bg-zinc-950 hover:text-yellow-400"
+            role="menuitem"
+          >Log out</button>
+        </form>
+      </div>
+    </div>
   </div>
   {% endif %}
 </header>

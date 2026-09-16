@@ -4,6 +4,12 @@
 
 {% block page_title %}Select school{% endblock %}
 
+{% block body_class %}layout-no-sidebar{% endblock %}
+{% block sidebar_region %}{% endblock %}
+{% block navbar %}
+  {% include 'includes/navbar.html' with hide_sidebar=True logo_inert=True %}
+{% endblock %}
+
 {% block breadcrumbs %}
   <span class="text-zinc-300">Workspaces</span>
 {% endblock %}
@@ -17,25 +23,61 @@
       </div>
       <a
         href="{% url 'tenants:create' %}"
-        class="inline-flex shrink-0 items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+        class="inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:w-auto sm:py-2"
       >
-        + Create New School
+        + Apply to add a school
       </a>
     </div>
 
-    {% if memberships %}
+    {% if memberships or application_draft %}
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {% if application_draft %}
+          <a
+            href="{% url 'tenants:create' %}"
+            class="flex min-h-[7rem] w-full flex-col rounded-md border border-dashed border-yellow-400/50 bg-black p-4 text-left active:border-yellow-400 hover:border-yellow-400"
+          >
+            <span class="text-lg font-semibold text-zinc-100">{{ application_draft.name }}</span>
+            <span class="mt-1 font-mono text-[11px] uppercase tracking-wider text-zinc-500">
+              {% if application_draft.county %}{{ application_draft.county }} · {% endif %}Draft
+            </span>
+            <span class="mt-4 flex flex-wrap gap-2">
+              <span class="inline-block rounded-md border border-yellow-400 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-yellow-400">
+                Draft
+              </span>
+              <span class="inline-block rounded-md border border-zinc-600 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-400">
+                Step {{ application_draft.step }} · {{ application_draft.step_label }}
+              </span>
+            </span>
+            <span class="mt-4 text-sm font-medium text-yellow-400">Resume application →</span>
+          </a>
+        {% endif %}
+
         {% for membership in memberships %}
           <form method="post" action="{% url 'tenants:switch' membership.school_id %}" hx-boost="false">
             {% csrf_token %}
             <button
               type="submit"
-              class="flex h-full w-full flex-col rounded-md border border-zinc-800 bg-black p-4 text-left hover:border-yellow-400"
+              class="flex min-h-[7rem] w-full flex-col rounded-md border border-zinc-800 bg-black p-4 text-left active:border-yellow-400 hover:border-yellow-400"
             >
               <span class="text-lg font-semibold text-zinc-100">{{ membership.school.name }}</span>
               <span class="mt-1 font-mono text-[11px] uppercase tracking-wider text-zinc-500">{{ membership.school.code }}</span>
-              <span class="mt-4 inline-block rounded-md border border-yellow-400 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-yellow-400">
-                {{ membership.role_label }}
+              <span class="mt-4 flex flex-wrap gap-2">
+                <span class="inline-block rounded-md border border-yellow-400 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-yellow-400">
+                  {{ membership.role_label }}
+                </span>
+                {% if membership.school.status == 'pending_review' %}
+                  <span class="inline-block rounded-md border border-zinc-600 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-zinc-400">
+                    Pending
+                  </span>
+                {% elif membership.school.subscription.billing_state == 'locked' %}
+                  <span class="inline-block rounded-md border border-red-400/50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-red-300">
+                    Payment due
+                  </span>
+                {% elif membership.school.subscription.billing_state == 'grace' %}
+                  <span class="inline-block rounded-md border border-yellow-400/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-yellow-200/80">
+                    Payment due
+                  </span>
+                {% endif %}
               </span>
             </button>
           </form>
@@ -48,22 +90,24 @@
           <p class="mt-2 text-sm text-zinc-500">
             You have {{ pending_invitation_count }} pending invitation{{ pending_invitation_count|pluralize }}.
           </p>
-          <a href="{% url 'tenants:inbox' %}" class="mt-4 inline-block rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300">
+          <a href="{% url 'tenants:inbox' %}" class="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:w-auto">
             Open inbox
           </a>
         {% else %}
-          <a href="{% url 'tenants:create' %}" class="mt-4 inline-block rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300">
-            + Create New School
+          <a href="{% url 'tenants:create' %}" class="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-yellow-400 bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 sm:w-auto">
+            + Apply to add a school
           </a>
         {% endif %}
       </div>
     {% endif %}
 
-    {% if memberships and pending_invitation_count %}
-      <div class="rounded-md border border-zinc-800 bg-black px-4 py-3 text-sm text-zinc-400">
-        You also have {{ pending_invitation_count }} pending invitation{{ pending_invitation_count|pluralize }}.
-        <a href="{% url 'tenants:inbox' %}" class="ml-1 text-yellow-400 hover:text-yellow-300">Review in inbox</a>
-      </div>
+    {% if pending_invitation_count %}
+      {% if memberships or application_draft %}
+        <div class="rounded-md border border-zinc-800 bg-black px-4 py-3 text-sm text-zinc-400">
+          You also have {{ pending_invitation_count }} pending invitation{{ pending_invitation_count|pluralize }}.
+          <a href="{% url 'tenants:inbox' %}" class="ml-1 inline-flex min-h-9 items-center text-yellow-400 hover:text-yellow-300">Review in inbox</a>
+        </div>
+      {% endif %}
     {% endif %}
   </div>
 {% endblock %}

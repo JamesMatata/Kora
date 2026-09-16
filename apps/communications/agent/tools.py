@@ -8,7 +8,7 @@ All side effects go through these typed, tenant-scoped tool functions.
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import wraps
 from typing import Any, Callable
@@ -116,89 +116,162 @@ def _require_student(school: School, admission_number: str) -> Student:
     return student
 
 
+def _unpaid_invoices(school: School, student: Student) -> list[FeeInvoice]:
+    """All non-paid invoices with a positive remaining balance, oldest due first."""
+    invoices = list(
+        FeeInvoice.objects.filter(school=school, student=student)
+        .exclude(status=FeeInvoice.Status.PAID)
+        .order_by('due_date', 'created_at')
+    )
+    return [inv for inv in invoices if inv.balance > 0]
+
+
 def _current_term_invoice(school: School, student: Student) -> FeeInvoice | None:
     """
     Prefer an open invoice whose term references the current academic year;
-    otherwise the most recent non-paid invoice, then any latest invoice.
+    otherwise the newest unpaid invoice (latest due), then any latest invoice.
     """
-    qs = FeeInvoice.objects.filter(school=school, student=student)
+    unpaid = _unpaid_invoices(school, student)
     year = AcademicYear.objects.filter(school=school, is_current=True).first()
     if year is not None:
-        year_qs = qs.filter(term__icontains=year.name)
-        open_for_year = (
-            year_qs.exclude(status=FeeInvoice.Status.PAID)
-            .order_by('-due_date', '-created_at')
-            .first()
-        )
-        if open_for_year is not None:
-            return open_for_year
-        latest_year = year_qs.order_by('-due_date', '-created_at').first()
-        if latest_year is not None:
-            return latest_year
+        # Prefer the latest open term that matches the current year label.
+        matches = [
+            inv
+            for inv in unpaid
+            if year.name and year.name.casefold() in (inv.term or '').casefold()
+        ]
+        if matches:
+            return max(matches, key=lambda inv: (inv.due_date, inv.created_at))
+    if unpaid:
+        return max(unpaid, key=lambda inv: (inv.due_date, inv.created_at))
 
-    open_invoice = (
-        qs.exclude(status=FeeInvoice.Status.PAID)
-        .order_by('-due_date', '-created_at')
-        .first()
-    )
-    if open_invoice is not None:
-        return open_invoice
+    qs = FeeInvoice.objects.filter(school=school, student=student)
     return qs.order_by('-due_date', '-created_at').first()
 
 
 def _term_closing_date(school: School, invoice: FeeInvoice) -> date:
-    """Policy ceiling for payment promises — invoice due date (term close)."""
-    return invoice.due_date
+    """
+    Policy ceiling for payment promises.
+
+    Arrears invoices often have past due dates; parents must still be able to
+    promise 'tomorrow'. Ceiling = later of (latest unpaid due, today) + 90 days.
+    """
+    unpaid = _unpaid_invoices(school, invoice.student)
+    dues = [inv.due_date for inv in unpaid] if unpaid else [invoice.due_date]
+    latest_due = max(dues)
+    today = timezone.localdate()
+    return max(latest_due, today) + timedelta(days=90)
 
 
 @agent_tool
 def get_student_fee_balance(school_id: str, admission_number: str) -> dict:
     """
-    Look up a student's active fee invoice balance for the current term.
+    Look up a student's fee balances across all unsettled terms (arrears).
 
     Args:
         school_id: Tenant school UUID.
         admission_number: Student admission number within that school.
 
     Returns:
-        student_name, admission_number, total_billed, paid_amount, balance,
-        due_date (ISO), status — or an error payload.
+        student_name, admission_number, invoices (per term), total_balance,
+        due_date (ISO of earliest open due), status — or an error payload.
     """
     try:
         school = _require_school(school_id)
         student = _require_student(school, admission_number)
-        invoice = _current_term_invoice(school, student)
-        if invoice is None:
+        unpaid = _unpaid_invoices(school, student)
+        if not unpaid:
+            latest = (
+                FeeInvoice.objects.filter(school=school, student=student)
+                .order_by('-due_date', '-created_at')
+                .first()
+            )
+            if latest is None:
+                return {
+                    'success': False,
+                    'error': 'No fee invoice found for this student.',
+                    'student_name': student.full_name,
+                    'admission_number': student.admission_number,
+                }
             return {
-                'success': False,
-                'error': 'No fee invoice found for this student.',
+                'success': True,
                 'student_name': student.full_name,
                 'admission_number': student.admission_number,
+                'total_billed': float(latest.total_amount),
+                'discount_amount': float(latest.discount_amount or 0),
+                'discount_note': (latest.discount_note or '').strip(),
+                'net_billed': float(latest.net_amount),
+                'paid_amount': float(latest.paid_amount),
+                'balance': 0.0,
+                'total_balance': 0.0,
+                'due_date': latest.due_date.isoformat(),
+                'status': latest.status,
+                'term': latest.term,
+                'invoices': [],
+                'message': (
+                    f'No outstanding balance for {student.full_name}. '
+                    f'Latest term ({latest.term}) is cleared.'
+                ),
             }
-        if invoice.school_id != school.id or invoice.student_id != student.id:
-            return {'success': False, 'error': 'Tenant boundary violation.'}
 
-        balance = invoice.balance
-        discount = invoice.discount_amount or Decimal('0.00')
-        net_billed = invoice.net_amount
+        invoice_rows = []
+        total_balance = Decimal('0.00')
+        total_billed = Decimal('0.00')
+        total_paid = Decimal('0.00')
+        total_discount = Decimal('0.00')
+        for inv in unpaid:
+            bal = inv.balance
+            total_balance += bal
+            total_billed += inv.total_amount
+            total_paid += inv.paid_amount
+            total_discount += inv.discount_amount or Decimal('0.00')
+            invoice_rows.append(
+                {
+                    'term': inv.term,
+                    'total_billed': float(inv.total_amount),
+                    'discount_amount': float(inv.discount_amount or 0),
+                    'paid_amount': float(inv.paid_amount),
+                    'balance': float(bal),
+                    'due_date': inv.due_date.isoformat(),
+                    'status': inv.status,
+                }
+            )
+
+        primary = unpaid[0]
+        lines = [
+            f'*{student.full_name}* (Adm {student.admission_number})',
+            f'Total outstanding: *{float(total_balance):.2f}*',
+        ]
+        if len(invoice_rows) == 1:
+            row = invoice_rows[0]
+            lines.append(
+                f'{row["term"]}: {row["balance"]:.2f} due {row["due_date"]}.'
+            )
+        else:
+            lines.append('By term:')
+            for row in invoice_rows:
+                lines.append(
+                    f'- {row["term"]}: *{row["balance"]:.2f}* '
+                    f'(due {row["due_date"]}, {row["status"]})'
+                )
+
         return {
+            'success': True,
             'student_name': student.full_name,
             'admission_number': student.admission_number,
-            'total_billed': float(invoice.total_amount),
-            'discount_amount': float(discount),
-            'discount_note': (invoice.discount_note or '').strip(),
-            'net_billed': float(net_billed),
-            'paid_amount': float(invoice.paid_amount),
-            'balance': float(balance),
-            'due_date': invoice.due_date.isoformat(),
-            'status': invoice.status,
-            'term': invoice.term,
-            'message': (
-                f'Outstanding balance is {float(balance):.2f} after '
-                f'bursary/waiver of {float(discount):.2f}.'
-                if discount > 0
-                else f'Outstanding balance is {float(balance):.2f}.'
-            ),
+            'total_billed': float(total_billed),
+            'discount_amount': float(total_discount),
+            'discount_note': '',
+            'net_billed': float(total_billed - total_discount),
+            'paid_amount': float(total_paid),
+            'balance': float(total_balance),
+            'total_balance': float(total_balance),
+            'due_date': primary.due_date.isoformat(),
+            'status': primary.status,
+            'term': primary.term,
+            'invoices': invoice_rows,
+            'open_invoice_count': len(invoice_rows),
+            'message': '\n'.join(lines),
         }
     except ValueError as exc:
         return {'success': False, 'error': str(exc)}
@@ -319,7 +392,7 @@ def record_payment_promise(
     school_id: str,
     admission_number: str,
     promised_amount: float,
-    promised_date: str,
+    promised_date: str = '',
 ) -> dict:
     """
     Record a PENDING payment promise against the student's current-term invoice.
@@ -328,10 +401,11 @@ def record_payment_promise(
         school_id: Tenant school UUID.
         admission_number: Student admission number.
         promised_amount: Amount the parent commits to pay.
-        promised_date: Promise date in YYYY-MM-DD (not past, not after term close).
+        promised_date: Natural date ("tomorrow", "Friday"), YYYY-MM-DD,
+            or phrases like "not sure" / empty when the date is unknown.
 
     Returns:
-        success, promised_amount, promised_date, message.
+        success, promised_amount, promised_date, date_uncertain, message.
     """
     try:
         school = _require_school(school_id)
@@ -342,6 +416,7 @@ def record_payment_promise(
                 'success': False,
                 'promised_amount': float(promised_amount),
                 'promised_date': promised_date,
+                'date_uncertain': False,
                 'message': 'No fee invoice found for this student.',
             }
         if invoice.school_id != school.id:
@@ -349,6 +424,7 @@ def record_payment_promise(
                 'success': False,
                 'promised_amount': float(promised_amount),
                 'promised_date': promised_date,
+                'date_uncertain': False,
                 'message': 'Tenant boundary violation.',
             }
 
@@ -358,56 +434,86 @@ def record_payment_promise(
                 'success': False,
                 'promised_amount': float(amount),
                 'promised_date': promised_date,
+                'date_uncertain': False,
                 'message': 'Promised amount must be greater than zero.',
             }
 
-        try:
-            parsed_date = datetime.strptime(
-                (promised_date or '').strip(),
-                '%Y-%m-%d',
-            ).date()
-        except ValueError:
-            return {
-                'success': False,
-                'promised_amount': float(amount),
-                'promised_date': promised_date,
-                'message': 'promised_date must be YYYY-MM-DD.',
-            }
+        from communications.agent.understanding.dates import parse_date_expression
+        from communications.agent.understanding.intent import is_uncertain_date_phrase
 
-        today = timezone.localdate()
-        closing = _term_closing_date(school, invoice)
-        if parsed_date < today:
-            return {
-                'success': False,
-                'promised_amount': float(amount),
-                'promised_date': parsed_date.isoformat(),
-                'message': 'Promised date cannot be in the past.',
-            }
-        if parsed_date > closing:
-            return {
-                'success': False,
-                'promised_amount': float(amount),
-                'promised_date': parsed_date.isoformat(),
-                'message': (
-                    f'Promised date cannot be after the term closing date '
-                    f'({closing.isoformat()}).'
-                ),
-            }
+        date_raw = (promised_date or '').strip()
+        uncertain = (not date_raw) or is_uncertain_date_phrase(date_raw)
+        parsed_date = None
+
+        if not uncertain:
+            try:
+                parsed_date = datetime.strptime(date_raw, '%Y-%m-%d').date()
+            except ValueError:
+                date_result = parse_date_expression(date_raw)
+                if date_result.is_ok and date_result.value is not None:
+                    parsed_date = date_result.value
+                elif is_uncertain_date_phrase(date_raw):
+                    uncertain = True
+                else:
+                    return {
+                        'success': False,
+                        'promised_amount': float(amount),
+                        'promised_date': promised_date,
+                        'date_uncertain': False,
+                        'message': (
+                            'Could not understand that date. '
+                            'Try tomorrow, Friday, YYYY-MM-DD, or say not sure.'
+                        ),
+                    }
+
+        if not uncertain and parsed_date is not None:
+            today = timezone.localdate()
+            closing = _term_closing_date(school, invoice)
+            if parsed_date < today:
+                return {
+                    'success': False,
+                    'promised_amount': float(amount),
+                    'promised_date': parsed_date.isoformat(),
+                    'date_uncertain': False,
+                    'message': 'Promised date cannot be in the past.',
+                }
+            if parsed_date > closing:
+                return {
+                    'success': False,
+                    'promised_amount': float(amount),
+                    'promised_date': parsed_date.isoformat(),
+                    'date_uncertain': False,
+                    'message': (
+                        f'Promised date is too far out '
+                        f'(after {closing.isoformat()}). Please pick an earlier date.'
+                    ),
+                }
 
         promise = PaymentPromise.objects.create(
             school=school,
             invoice=invoice,
             promised_amount=amount,
-            promised_date=parsed_date,
+            promised_date=None if uncertain else parsed_date,
+            date_uncertain=uncertain,
             status=PaymentPromise.Status.PENDING,
+        )
+        when = (
+            'date to be confirmed'
+            if promise.date_uncertain or promise.promised_date is None
+            else promise.promised_date.isoformat()
         )
         return {
             'success': True,
             'promised_amount': float(promise.promised_amount),
-            'promised_date': promise.promised_date.isoformat(),
+            'promised_date': (
+                None
+                if promise.promised_date is None
+                else promise.promised_date.isoformat()
+            ),
+            'date_uncertain': promise.date_uncertain,
             'message': (
                 f'Payment promise recorded for {student.full_name} '
-                f'by {promise.promised_date.isoformat()}.'
+                f'({when}).'
             ),
         }
     except ValueError as exc:
@@ -415,6 +521,7 @@ def record_payment_promise(
             'success': False,
             'promised_amount': float(promised_amount) if promised_amount else 0.0,
             'promised_date': promised_date,
+            'date_uncertain': False,
             'message': str(exc),
         }
     except Exception:
@@ -423,8 +530,81 @@ def record_payment_promise(
             'success': False,
             'promised_amount': float(promised_amount) if promised_amount else 0.0,
             'promised_date': promised_date,
+            'date_uncertain': False,
             'message': 'Unable to record payment promise.',
         }
+
+
+@agent_tool
+def notify_finance_staff(
+    school_id: str,
+    session_id: str,
+    reason: str,
+    title: str = 'Parent WhatsApp update',
+) -> dict:
+    """
+    Notify finance staff without taking the bot offline.
+
+    Use for cash-at-office intent. For a true human handoff, use
+    flag_for_human_escalation instead.
+    """
+    try:
+        school = _require_school(school_id)
+        if not session_id or not str(session_id).strip():
+            return {'success': False, 'notified': False, 'message': 'session_id is required.'}
+
+        session = (
+            ConversationSession.objects.select_related('parent_contact')
+            .filter(pk=session_id)
+            .first()
+        )
+        if session is None:
+            return {'success': False, 'notified': False, 'message': 'Session not found.'}
+        if session.school_id != school.id:
+            return {
+                'success': False,
+                'notified': False,
+                'message': 'Tenant boundary violation.',
+            }
+
+        reason_text = (reason or '').strip() or 'Parent update.'
+        title_text = (title or '').strip() or 'Parent WhatsApp update'
+        phone = session.parent_contact.phone_number
+
+        MessageLog.objects.create(
+            school=school,
+            session=session,
+            direction=MessageLog.Direction.OUTBOUND,
+            sender=MessageLog.Sender.BOT,
+            body=f'[NOTICE] {reason_text}',
+            delivery_status=MessageLog.DeliveryStatus.SENT,
+        )
+
+        from communications.services.staff_notify import finance_staff_users
+        from tenants.models import Notification
+        from tenants.services import notify_user
+
+        for user in finance_staff_users(school):
+            notify_user(
+                user=user,
+                school=school,
+                kind=Notification.Kind.NOTICE,
+                title=title_text,
+                body=f'{phone}: {reason_text}',
+            )
+
+        logger.info(
+            'Notified finance staff session=%s school=%s reason=%r',
+            session.pk,
+            school.id,
+            reason_text,
+        )
+        return {'success': True, 'notified': True}
+    except ValueError as exc:
+        return {'success': False, 'notified': False, 'message': str(exc)}
+    except Exception:
+        logger.exception('notify_finance_staff failed')
+        return {'success': False, 'notified': False, 'message': 'Unable to notify staff.'}
 
 
 @agent_tool
@@ -511,7 +691,7 @@ GEMINI_FUNCTION_DECLARATIONS: list[dict[str, Any]] = [
     {
         'name': 'get_student_fee_balance',
         'description': (
-            'Look up a student fee balance for the current term. '
+            'Look up fee balances across all unsettled terms (arrears included). '
             'Requires school_id and admission_number.'
         ),
         'parameters': {
@@ -554,8 +734,8 @@ GEMINI_FUNCTION_DECLARATIONS: list[dict[str, Any]] = [
     {
         'name': 'record_payment_promise',
         'description': (
-            'Record a PENDING promise to pay by a future date (YYYY-MM-DD), '
-            'not past and not after term closing.'
+            'Record a PENDING promise to pay. Date may be natural language '
+            '(tomorrow, Friday), YYYY-MM-DD, or "not sure" when unknown.'
         ),
         'parameters': {
             'type': 'object',
@@ -565,21 +745,25 @@ GEMINI_FUNCTION_DECLARATIONS: list[dict[str, Any]] = [
                 'promised_amount': {'type': 'number'},
                 'promised_date': {
                     'type': 'string',
-                    'description': 'YYYY-MM-DD',
+                    'description': (
+                        'tomorrow / Friday / YYYY-MM-DD / not sure '
+                        '(empty allowed when unsure)'
+                    ),
                 },
             },
             'required': [
                 'school_id',
                 'admission_number',
                 'promised_amount',
-                'promised_date',
             ],
         },
     },
     {
         'name': 'flag_for_human_escalation',
         'description': (
-            'Escalate the WhatsApp session to school staff and write an audit entry.'
+            'Hand the WhatsApp chat to school staff (true escalation). '
+            'Use when the parent asks to talk to the school (*5*). '
+            'Do NOT use for cash-at-office (*3*) — use notify_finance_staff instead.'
         ),
         'parameters': {
             'type': 'object',
@@ -587,6 +771,23 @@ GEMINI_FUNCTION_DECLARATIONS: list[dict[str, Any]] = [
                 'school_id': {'type': 'string'},
                 'session_id': {'type': 'string'},
                 'reason': {'type': 'string'},
+            },
+            'required': ['school_id', 'session_id', 'reason'],
+        },
+    },
+    {
+        'name': 'notify_finance_staff',
+        'description': (
+            'Notify bursar/admin without taking the bot offline. '
+            'Use when the parent will bring cash to the office (*3*).'
+        ),
+        'parameters': {
+            'type': 'object',
+            'properties': {
+                'school_id': {'type': 'string'},
+                'session_id': {'type': 'string'},
+                'reason': {'type': 'string'},
+                'title': {'type': 'string'},
             },
             'required': ['school_id', 'session_id', 'reason'],
         },
